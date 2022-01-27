@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf8">
+    <title>Doom Text Generator</title>
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+    <style>
+        ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        input, select, button {
+            vertical-align: middle;
+            font-size: inherit;
+        }
+        input[type=radio],
+        input[type=checkbox] {
+            margin: 0 3px;
+        }
+
+        html {
+            height: 100%;
+        }
+        body {
+            font-size: 20px;
+            min-height: 100%;
+            margin: 1em;
+            line-height: 1.33;
+            font-family: sans-serif;
+            background: #fcfcfc;
+            color: #111;
+        }
+        #canvas-wrapper {
+            height: 20vh;
+            /* center the canvas */
+            display: flex;
+            align-items: center;
+            overflow: auto;
+            padding: 1em;
+        }
+        canvas {
+            flex: 0 0 auto;
+            /* do this instead of justify-content because that hides the left end on overflow */
+            margin: 0 auto;
+            image-rendering: crisp-edges;
+        }
+        form {
+            flex: 1 1 auto;
+            margin: 1em 10vw;
+            overflow: auto;
+            display: grid;
+            grid-template:
+                "textarea   textarea"
+                "font       translation"
+                "scale      translation"
+                "kerning    translation"
+                "alignment  translation"
+                "syntax     translation"
+                "page       translation"
+                / 1fr 1fr
+            ;
+            gap: 1em;
+        }
+        textarea {
+            grid-area: textarea;
+            font-size: inherit;
+            display: block;
+            width: 50vw;
+            height: 6em;
+            margin: 1em auto;
+        }
+        section {
+        }
+        section > h2 {
+            font-size: 1.25em;
+            margin: 0 0 0.5em;
+            border-bottom: 1px solid #ccc;
+            font-weight: normal;
+            color: #222;
+        }
+        #section-font {
+            grid-area: font;
+        }
+        #section-scale {
+            grid-area: scale;
+        }
+        #section-kerning {
+            grid-area: kerning;
+        }
+        #section-translation {
+            grid-area: translation;
+        }
+        #section-syntax {
+            grid-area: syntax;
+        }
+        #section-page {
+            grid-area: page;
+        }
+        #section-alignment {
+            grid-area: alignment;
+        }
+        p {
+            font-size: 0.8em;
+            color: #666;
+            font-style: italic;
+        }
+        ul.radioset > li {
+            padding: 0.125em 0.5em;
+        }
+        ul.radioset > li:hover {
+            background-color: #f4f4f4;
+        }
+        ul.radioset > li.selected {
+            background-color: hsl(15, 100%, 90%);
+        }
+        ul.radioset > li > label {
+            display: block;
+        }
+        ul.radioset > li > p {
+            margin: 0.25em 2em;
+        }
+        .range-with-label {
+            display: flex;
+        }
+        .range-with-label input {
+            flex: 1 auto;
+        }
+        .range-with-label output {
+            flex: 0 0 2em;
+            margin: 0 0.5em;
+            text-align: right;
+        }
+
+        #section-scale input[type=range] {
+            grid-area: scale;
+        }
+
+        ul.translations > li > label {
+            display: flex;
+            align-items: center;
+        }
+        .translation-example {
+            flex: 0 0 auto;
+            display: inline-block;
+            height: 1em;
+            width: 4em;
+            margin: 0 0.5em;
+            border: 1px solid #404040;
+            vertical-align: middle;
+            background-image: linear-gradient(to right, #470000 0%, #FFB8B8 100%);
+        }
+        /* switch between normal and console gradients depending on font */
+        form.using-console-font .translation-example.-normal {
+            display: none;
+        }
+        .translation-example.-console {
+            display: none;
+        }
+        form.using-console-font .translation-example.-console {
+            display: initial;
+        }
+        .translations .name {
+            flex: 1 0 auto;
+        }
+        .translations .acs-escape {
+            flex: 0 0 auto;
+            margin: 0 0.5em;
+            width: 3em;
+            font-family: monospace;
+        }
+        .translations button {
+            flex: 0 0 auto;
+            font-size: inherit;
+            width: 1em;
+            height: 1em;
+            margin: 0 0.5em;
+            padding: 0;
+            border: 1px solid #333;
+            border-radius: 4px;
+            box-shadow: inset 0 -0.25em 4px #0003, 0 1px 2px #0009;
+        }
+
+        .alignment {
+            display: flex;
+        }
+        .alignment > li {
+            flex: 1 0 auto;
+        }
+        .alignment-left {
+            text-align: left;
+        }
+        .alignment-center {
+            text-align: center;
+        }
+        .alignment-right {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-wrapper">
+        <canvas></canvas>
+    </div>
+    <form>
+        <textarea></textarea>
+
+        <section id="section-font">
+            <h2>Font</h2>
+            <select name="font">
+                <option value="doom-small">Doom — small font</option>
+                <option value="gzdoom-doom-bigupper">Doom — menu font</option>
+                <option value="gzdoom-doom-bigfont">Doom — menu font (small caps only)</option>
+                <!-- TODO credit this somehow -  https://doomwiki.org/wiki/Eric_Ou_(Amuscaria) -->
+                <option value="custom-amuscaria-doom-nightmare">Doom — nightmare font</option>
+                <option value="heretic-small">Heretic/Hexen — small font</option>
+                <option value="heretic-menu">Heretic — menu font</option>
+                <option value="hexen-menu">Hexen — menu font</option>
+                <option value="chex-small">Chex Quest — small font</option>
+                <option value="strife-small">Strife — small font</option>
+                <option value="strife-small2">Strife — alt small font</option>
+                <option value="strife-menu-gzdoom">Strife — menu font</option>
+                <!--
+                <option>HacX — small font</option>
+                <option>HacX — menu font</option>
+                <option>FreeDoom — small font (STCFN*)</option>
+                <option>FreeDoom — menu font (inferred from menu graphics)</option>
+                -->
+                <option value="zdoom-console">ZDoom — console font (confont)</option>
+                <!-- TODO fonts from popular megawads, perhaps?  like eternal doom had one, maybe other recent stuff does too -->
+            </select>
+            <p>Doom and Strife use hardcoded graphics for menu text, so they don't really have a "menu font" — the ones used here are from GZDoom, which reverse engineered and extended them.</p>
+            <p>Most fonts only handle numbers, basic punctuation, and English letters.  Doom and Strife menu fonts support extended Latin and Cyrillic.  ZDoom's console font supports all of Latin-1 (with some bonus symbols in C0).</p>
+        </section>
+        <section id="section-scale">
+            <h2>Scale</h2>
+            <div class="range-with-label"><input name="scale" type="range" min="1" max="12" step="1" value="3"> <output>4×</output></div>
+        </section>
+        <section id="section-kerning">
+            <h2>Kerning</h2>
+            <div class="range-with-label"><input name="kerning" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></div>
+        </section>
+        <section id="section-line-spacing">
+            <h2>Line spacing</h2>
+            <div class="range-with-label"><input name="line-spacing" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></div>
+        </section>
+        <section id="section-translation">
+            <h2>ZDoom color translation</h2>
+            <ul class="radioset translations">
+                <li><label><input name="translation" type="radio" value="" checked> None</label></li>
+            </ul>
+        </section>
+        <section id="section-syntax">
+            <h2>Syntax</h2>
+            <ul class="radioset syntax">
+                <li><label><input name="syntax" type="radio" value="none" checked> Plain text</label></li>
+                <li>
+                    <label><input name="syntax" type="radio" value="acs"> ACS string escaping</label>
+                    <p>Allows changing the color via <code>\cX</code> or <code>\c[NAME]</code> sequences.  Limited support for other escape characters.</p>
+                </li>
+                <li>
+                    <label><input name="syntax" type="radio" value="bbcode" disabled> BBcode</label>
+                    <p>Not yet implemented.</p>
+                </li>
+            </ul>
+        </section>
+        <section id="section-page">
+            <h2>Page</h2>
+            <div>
+                <input name="bg" type="checkbox"> <label>Background color: <input name="bgcolor" type="color" value="#fff" disabled></label>
+            </div>
+            <p>Psst — you can also click the button to the right of a translation.</p>
+        </section>
+        <section id="section-alignment">
+            <h2>Alignment</h2>
+            <ul class="radioset alignment">
+                <li class="alignment-left"><label><input name="align" type="radio" value="0"><br>left</label></li>
+                <li class="alignment-center"><label><input name="align" type="radio" value="0.5" checked><br>center</label></li>
+                <li class="alignment-right"><label><input name="align" type="radio" value="1"><br>right</label></li>
+            </ul>
+        </section>
+    </form>
+</body>
+</html>
