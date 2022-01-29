@@ -455,9 +455,6 @@ class BossBrain {
 
         await Promise.all(load_promises);
 
-        // Load from the fragment
-        this.set_form_from_fragment(true);
-
         let list = document.querySelector('#js-font-list');
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
             // TODO pop open a lil info overlay for each of these
@@ -488,6 +485,24 @@ class BossBrain {
     }
 
     async init_form() {
+        this.set_form_from_fragment(true);
+
+        // While this is checked, the form itself is gone, for the convenience of, for example,
+        // people using this live in OBS.  Check this first, before waiting on images to load, to
+        // minimize the intermediate flash.
+        this.form.elements['solo'].addEventListener('change', ev => {
+            document.body.classList.toggle('solo', ev.target.checked);
+            // Need to do this directly since usually we rely on it happening due to a redraw
+            this.update_fragment();
+        });
+        document.body.classList.toggle('solo', this.form.elements['solo'].checked);
+        // But you can turn it off by clicking anywhere
+        document.querySelector('#canvas-wrapper').addEventListener('click', () => {
+            this.form.elements['solo'].checked = false;
+            document.body.classList.remove('solo');
+            this.update_fragment();
+        });
+
         await this.init();
 
         this.form.addEventListener('submit', ev => {
@@ -661,6 +676,11 @@ class BossBrain {
         }
     }
 
+    update_fragment() {
+        let data = new FormData(this.form);
+        history.replaceState(null, document.title, '#' + new URLSearchParams(data));
+    }
+
     // Roll a random message and color
     randomize() {
         let group = random_choice(SAMPLE_MESSAGES);
@@ -716,8 +736,7 @@ class BossBrain {
             background: elements['bg'].checked ? elements['bgcolor'].value : null,
         });
 
-        let data = new FormData(this.form);
-        history.replaceState(null, document.title, '#' + new URLSearchParams(data));
+        this.update_fragment();
     }
 
     render_text(args) {

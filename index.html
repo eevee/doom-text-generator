@@ -39,7 +39,7 @@
             color: #111;
         }
         #canvas-wrapper {
-            flex: none;
+            flex: 1 0 auto;
             height: 25vh;
             /* center the canvas */
             display: flex;
@@ -236,6 +236,12 @@
             max-width: 100%;
         }
 
+        /* Solo mode */
+        body.solo form {
+            background: transparent;
+            display: none;
+        }
+
         @media (max-width: 1439px) {
             form {
                 padding: 1em 2vw;
@@ -324,7 +330,7 @@
                         <option>truncate</option>
                     </select>
                 </label></li>
-                <li><label><input name="solo" type="checkbox"> Hide controls</label></li>
+                <li><label><input name="solo" type="checkbox"> Hide controls (click to reveal)</label></li>
             </ul>
 
             <h2>Syntax</h2>
