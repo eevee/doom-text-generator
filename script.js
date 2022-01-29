@@ -16,11 +16,9 @@
 // little info popup about a font (source, copyright, character set...)
 //
 // TODO things people asked for:
-// - [OK] add nightmare font
 // - add query string, or maybe just insta-update fragment?
 // - line spacing
 // TODO nice to do while i'm here:
-// - button to reroll a random message
 // - modernize js
 //   - load the json, as json
 //   - i feel like i need a better way of handling the form elements, maybe i need a little lib of thin wrappers idk
@@ -28,14 +26,10 @@
 //     - fragment should skip when value is default
 //     - kerning and line spacing should support both a slider and a spinner?  or is that too much
 // - update the html
-//   - poor mobile layout
-//   - translations unnecessarily wide on desktops
 //   - too much text?  popups?  not sure
 //   - no way to just enter a number
-// - fix the json what the jesus fuck
 // - preview image edges?
 //   - show width/height?
-// - button to download it, if that were not clear
 import DOOM_FONTS from './data.js';
 // Decode the glyph data real quick, shh we're technically mutating a global
 for (let fontdef of Object.values(DOOM_FONTS)) {
@@ -66,6 +60,22 @@ function mk(tag_selector, ...children) {
         el.append(...children);
     }
     return el;
+}
+
+function trigger_local_download(filename, blob) {
+    let url = URL.createObjectURL(blob);
+    // To download a file, um, make an <a> and click it.  Not kidding
+    let a = mk('a', {
+        href: url,
+        download: filename,
+    });
+    document.body.append(a);
+    a.click();
+    // Absolutely no idea when I'm allowed to revoke this, but surely a minute is safe
+    window.setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+    }, 60 * 1000);
 }
 
 // used for rgb`#000000`
@@ -589,18 +599,27 @@ class BossBrain {
         let handle_radioset = ev => this._update_radioset(ev.target.closest('ul.radioset'));
         for (let ul of document.querySelectorAll('ul.radioset')) {
             ul.addEventListener('change', handle_radioset);
-
-            // Highlight whatever's selected /now/
-            for (let radio of ul.querySelectorAll('input[type=radio]')) {
-                if (radio.checked) {
-                    radio.closest('ul.radioset > li').classList.add('selected');
-                }
-            }
         }
+        this._update_all_radiosets();
 
         // Utility buttons
         document.querySelector('#button-randomize').addEventListener('click', () => {
             this.randomize();
+        });
+        document.querySelector('#button-download').addEventListener('click', () => {
+            this.final_canvas.toBlob(blob => {
+                if (! blob)
+                    return;
+
+                let slug = (
+                    this.form.elements['text'].value
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^-0-9a-z]+/g, '')
+                );
+                let stem = this.form.elements['font'].value + '-' + (slug || 'blank');
+                trigger_local_download(stem.substring(0, 100) + '.png', blob);
+            });
         });
     }
 
