@@ -548,6 +548,17 @@ class BossBrain {
         });
         update_kerning_label();
 
+        // Line spacing
+        let line_spacing_ctl = this.form.elements['line-spacing'];
+        function update_line_spacing_label() {
+            line_spacing_ctl.parentNode.querySelector('output').textContent = String(line_spacing_ctl.value);
+        }
+        line_spacing_ctl.addEventListener('input', ev => {
+            update_line_spacing_label();
+            this.redraw_current_text();
+        });
+        update_line_spacing_label();
+
         // Alignment
         let alignment_list = this.form.querySelector('ul.alignment');
         alignment_list.addEventListener('change', redraw_handler);
@@ -730,6 +741,7 @@ class BossBrain {
             syntax: elements['syntax'].value,
             scale: elements['scale'].value,
             kerning: parseInt(elements['kerning'].value, 10),
+            line_spacing: parseInt(elements['line-spacing'].value, 10),
             default_font: elements['font'].value,
             default_translation: elements['translation'].value || null,
             alignment: elements['align'].value,
@@ -747,6 +759,7 @@ class BossBrain {
         }
         let scale = args.scale || 1;
         let kerning = args.kerning || 0;
+        let line_spacing = args.line_spacing || 0;
         let default_font = args.default_font || 'doom-small';
         let default_translation = args.default_translation || null;
         let alignment = args.alignment;
@@ -860,6 +873,9 @@ class BossBrain {
             });
 
             y += font.line_height;
+            if (l < lines.length - 1) {
+                y += line_spacing;
+            }
         }
 
         // Resize the canvas to fit snugly
