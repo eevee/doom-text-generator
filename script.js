@@ -37,10 +37,6 @@
 // - preview image edges?
 //   - show width/height?
 // - button to download it, if that were not clear
-"use strict";
-(function() {
-"use strict";
-
 function mk(tag_selector, ...children) {
     let [tag, ...classes] = tag_selector.split('.');
     let el = document.createElement(tag);
@@ -70,6 +66,108 @@ function rgb(rrggbb) {
 }
 
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
+
+const FONTS = {
+    'doom-small': {
+        name: "Doom — small font",
+        desc: "Used for in-game messages and menu prompts.",
+        creator: "id software",
+        source: "STCFN___ lumps from doom2.wad",
+        free: false,
+    },
+    // TODO rename these
+    'gzdoom-doom-bigupper': {
+        name: "Doom — menu font",
+        desc: "Used for main menu options and level titles.",
+        creator: "id software",
+        source: "GZDoom's BIGFONT, reverse engineered from Doom's graphics which didn't include individual characters",
+        source_url: 'https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont',
+        free: 'dubious',
+    },
+    'gzdoom-doom-bigfont': {
+        name: "Doom — menu font (small caps only)",
+        desc: "Used for main menu options and level titles.",
+        creator: "id software",
+        source: "GZDoom's BIGFONT, reverse engineered from Doom's graphics which didn't include individual characters",
+        source_url: 'https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont',
+        free: 'dubious',
+    },
+    // <!-- TODO credit this somehow -   -->
+    'custom-amuscaria-doom-nightmare': {
+        name: "Doom — nightmare font",
+        desc: "Used for the \"Nightmare!\" difficulty level.",
+        creator: "id software + Amuscaria",
+        creator_url: 'https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)',
+        // TODO reverse engineered etc
+        source_url: 'https://forum.zdoom.org/viewtopic.php?f=4&t=27060',
+        free: 'dubious',
+    },
+    'heretic-small': {
+        name: "Heretic/Hexen — small font",
+        desc: "Used for in-game messages and menu prompts.",
+        creator: "Raven Software",
+        source: "FONTA__ lumps from heretic.wad",
+        free: false,
+    },
+    'heretic-menu': {
+        name: "Heretic — menu font",
+        desc: "Used for main menu options.",
+        creator: "Raven Software",
+        source: "FONTB__ lumps from heretic.wad",
+        free: false,
+    },
+    'hexen-menu': {
+        name: "Hexen — menu font",
+        desc: "Used for main menu options.",
+        creator: "Raven Software",
+        source: "FONTB__ lumps from hexen.wad",
+        free: false,
+    },
+    'chex-small': {
+        name: "Chex Quest — small font",
+        desc: "Used for in-game messages and menu prompts.",
+        creator: "unknown",  // XXX?
+        source: "STCFN___ lumps from chex3.wad",
+        free: 'dubious',
+    },
+    'strife-small': {
+        name: "Strife — small font",
+        desc: "Used for in-game messages and menu prompts.",
+        creator: "unknown",  // XXX?
+        source: "STBFN___ lumps from strife.wad",
+        free: false,
+    },
+    'strife-small2': {
+        name: "Strife — alternate small font",
+        // TODO well that can't be true
+        desc: "Used for in-game messages and menu prompts.",
+        creator: "unknown",  // XXX?
+        source: "STCFN___ lumps from strife.wad",
+        free: false,
+    },
+    // TODO rename to bigfont probably
+    'strife-menu-gzdoom': {
+        name: "Strife — menu font",
+        // TODO well that can't be true
+        desc: "Used for main menu options.",
+        creator: "unknown",  // XXX?
+        // TODO get the fuckin, gzdoom link
+        source: "STCFN___ lumps from strife.wad",
+        free: 'mixed',
+    },
+    // TODO hacx small + menu fonts
+    // TODO freedoom small + menu fonts
+    'zdoom-console': {
+        name: "ZDoom — console font",
+        // TODO is this used in gzdoom any more?
+        // TODO all wrong actually
+        desc: "Used for main menu options.",
+        creator: "unknown",  // XXX?
+        // TODO get the fuckin, gzdoom link
+        source: "STCFN___ lumps from strife.wad",
+        free: 'mixed',
+    },
+};
 
 // TODO does vanilla do anything like this??  is this converted to the palette?
 const ZDOOM_TRANSLATIONS = {
@@ -616,7 +714,68 @@ function redraw(args) {
     final_ctx.drawImage(buffer_canvas, 0, 0, canvas.width, canvas.height);
 }
 
-window.addEventListener('load', ev => {
+async function init() {
+    // Init globals
+    canvas = document.querySelector('canvas');
+
+    let load_promises = [];
+    for (let [fontname, fontdef] of Object.entries(XXX_DOOM_FONTS)) {
+        let img = new Image;
+        img.src = fontdef.image;
+        font_images[fontname] = img;
+        load_promises.push(img.decode());
+        //document.body.append(img);
+    }
+
+    await Promise.all(load_promises);
+
+
+    let form = document.querySelector('form');
+    // TODO read fragment
+
+
+    let list = document.querySelector('#js-font-list');
+    for (let [name, fontdef] of Object.entries(FONTS)) {
+        // TODO pop open a lil info overlay for each of these
+        redraw({
+            text: "Hello, world!",
+            default_font: name,
+            scale: 2,
+        });
+        let name_canvas = mk('canvas', {width: canvas.width, height: canvas.height});
+        name_canvas.getContext('2d').drawImage(canvas, 0, 0);
+
+        let glyphs = XXX_DOOM_FONTS[name].glyphs;
+        /*
+        let charset = Object.keys(glyphs).sort().join('');
+        let missing = [];
+        for (let n = 33; n < 127; n++) {
+            let ch = String.fromCharCode(n);
+            if (! glyphs[ch]) {
+                missing.push(ch);
+            }
+        }
+        */
+        let li = mk('li',
+            mk('label',
+                mk('input', {type: 'radio', name: 'font', value: name}),
+                " ",
+                fontdef.name,
+                mk('br'),
+                name_canvas,
+            ),
+        );
+        list.append(li);
+    }
+
+    if (! form.elements['font'].value) {
+        form.elements['font'].value = 'doom-small';
+    }
+}
+
+window.addEventListener('load', async ev => {
+    await init();
+
     let form = document.querySelector('form');
     form.addEventListener('submit', ev => {
         ev.preventDefault();
@@ -638,15 +797,6 @@ window.addEventListener('load', ev => {
         history.replaceState(null, document.title, '#' + new URLSearchParams(data));
     }
 
-    for (let [fontname, fontdef] of Object.entries(XXX_DOOM_FONTS)) {
-        let img = new Image;
-        img.src = fontdef.image;
-        font_images[fontname] = img;
-        //document.body.append(img);
-    }
-
-    canvas = document.querySelector('canvas');
-
     textarea = document.querySelector('textarea');
     // If the textarea is blank (which may not be the case if browser
     // navigation restored previously-typed text!), populate it.
@@ -658,7 +808,7 @@ window.addEventListener('load', ev => {
 
     // Font
     let font_ctl = form.elements['font'];
-    font_ctl.addEventListener('change', ev => {
+    document.querySelector('#js-font-list').addEventListener('change', ev => {
         form.classList.toggle('using-console-font', font_ctl.value === 'zdoom-console');
         redraw_current_text();
     });
@@ -765,9 +915,8 @@ window.addEventListener('load', ev => {
         set_background(ev.target.getAttribute('data-hex'));
     });
 
-    // Do the first draw as soon as the selected font loads
-    // TODO better load handling would be nice, but
-    font_images[form.elements['font'].value].addEventListener('load', redraw_current_text);
+    // Fonts were already loaded by init() so we are good to go
+    redraw_current_text();
 
     function handle_radioset(ev) {
         let ul = ev.target.closest('ul.radioset');
@@ -787,5 +936,3 @@ window.addEventListener('load', ev => {
         }
     }
 });
-
-})();

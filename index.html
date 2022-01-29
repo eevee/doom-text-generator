@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="utf8">
+    <meta name="viewport" content="initial-scale=1">
     <title>Doom Text Generator</title>
     <script src="data.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js" type="module"></script>
     <style>
         ul {
             margin: 0;
@@ -12,8 +13,11 @@
             list-style: none;
         }
         input, select, button {
-            vertical-align: middle;
+            vertical-align: baseline;
             font-size: inherit;
+        }
+        input[type=color] {
+            vertical-align: middle;
         }
         input[type=radio],
         input[type=checkbox] {
@@ -24,16 +28,20 @@
             height: 100%;
         }
         body {
+            display: flex;
+            flex-direction: column;
+
             font-size: 20px;
-            min-height: 100%;
-            margin: 1em;
+            height: 100%;
+            margin: 0;
             line-height: 1.33;
             font-family: sans-serif;
             background: #fcfcfc;
             color: #111;
         }
         #canvas-wrapper {
-            height: 20vh;
+            flex: none;
+            height: 25vh;
             /* center the canvas */
             display: flex;
             align-items: center;
@@ -48,58 +56,64 @@
         }
         form {
             flex: 1 1 auto;
-            margin: 1em 10vw;
+            border-top: 1px solid #444;
+            padding: 1em 10vw;
             overflow: auto;
             display: grid;
             grid-template:
-                "textarea   textarea"
-                "font       translation"
-                "scale      translation"
-                "kerning    translation"
-                "alignment  translation"
-                "syntax     translation"
-                "page       translation"
-                / 1fr 1fr
+                "text       text        text"
+                "font       options     color"
+                "footer     footer      footer"
+                / 1fr 1fr 1fr
             ;
-            gap: 1em;
+            column-gap: 1em;
         }
-        textarea {
-            grid-area: textarea;
-            font-size: inherit;
-            display: block;
-            width: 50vw;
-            height: 6em;
-            margin: 1em auto;
+        form > footer {
+            grid-area: footer;
+            font-size: 0.75em;
+            padding: 1em;
+            border-top: 1px dotted #ccc;
+            color: #444;
         }
         section {
         }
         section > h2 {
             font-size: 1.25em;
-            margin: 0 0 0.5em;
+            margin: 1em 0 0.5em;
             border-bottom: 1px solid #ccc;
             font-weight: normal;
             color: #222;
         }
+        #section-text {
+            grid-area: text;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5em;
+            margin: 1em auto;
+        }
+        #section-text .-buttons {
+            display: flex;
+            width: 80%;
+            gap: 1em;
+            justify-content: stretch;
+        }
+        #section-text .-buttons button {
+            flex: 1;
+        }
+        textarea {
+            font-size: inherit;
+            width: 60vw;
+            height: 6em;
+        }
         #section-font {
             grid-area: font;
         }
-        #section-scale {
-            grid-area: scale;
+        #section-options {
+            grid-area: options;
         }
-        #section-kerning {
-            grid-area: kerning;
-        }
-        #section-translation {
-            grid-area: translation;
-        }
-        #section-syntax {
-            grid-area: syntax;
-        }
-        #section-page {
-            grid-area: page;
-        }
-        #section-alignment {
-            grid-area: alignment;
+        #section-color {
+            grid-area: color;
         }
         p {
             font-size: 0.8em;
@@ -107,16 +121,27 @@
             font-style: italic;
         }
         ul.radioset > li {
-            padding: 0.125em 0.5em;
+            position: relative;
+            outline-offset: -1px;
         }
         ul.radioset > li:hover {
             background-color: #f4f4f4;
+            outline: 1px solid #ccc;
         }
         ul.radioset > li.selected {
-            background-color: hsl(15, 100%, 90%);
+            background-color: hsl(215, 100%, 92%);
+            outline: none;
         }
         ul.radioset > li > label {
             display: block;
+            padding: 0.125em 0.5em;
+            padding-left: 1.5em;
+        }
+        ul.radioset > li > label > input:first-child {
+            position: absolute;
+            width: 1em;
+            height: 1.33em;  /* one line-height */
+            left: 0;
         }
         ul.radioset > li > p {
             margin: 0.25em 2em;
@@ -146,6 +171,7 @@
             display: inline-block;
             height: 1em;
             width: 4em;
+            max-width: 15vw;
             margin: 0 0.5em;
             border: 1px solid #404040;
             vertical-align: middle;
@@ -167,7 +193,7 @@
         .translations .acs-escape {
             flex: 0 0 auto;
             margin: 0 0.5em;
-            width: 3em;
+            width: 2.5em;
             font-family: monospace;
         }
         .translations button {
@@ -185,8 +211,18 @@
         .alignment {
             display: flex;
         }
+        .alignment input {
+            width: 1em;
+            height: 1em;
+        }
         .alignment > li {
             flex: 1 0 auto;
+        }
+        ul.radioset.alignment > li > label {
+            padding-left: 0.5em;
+        }
+        ul.radioset.alignment > li > label > input:first-child {
+            position: static;
         }
         .alignment-left {
             text-align: left;
@@ -197,6 +233,42 @@
         .alignment-right {
             text-align: right;
         }
+
+        #js-font-list canvas {
+            max-width: 100%;
+        }
+
+        @media (max-width: 1439px) {
+            form {
+                padding: 1em 2vw;
+            }
+        }
+        @media (max-width: 1279px) {
+            form {
+                grid-template:
+                    "text   text"
+                    "font   options"
+                    "font   color"
+                    "footer footer"
+                    / 1fr 1fr
+                ;
+            }
+        }
+        @media (max-width: 800px) {
+            form {
+                grid-template:
+                    "text"
+                    "font"
+                    "options"
+                    "color"
+                    "footer"
+                    / 1fr
+                ;
+            }
+            textarea {
+                width: 70vw;
+            }
+        }
     </style>
 </head>
 <body>
@@ -204,54 +276,59 @@
         <canvas></canvas>
     </div>
     <form>
-        <textarea></textarea>
+        <section id="section-text">
+            <textarea name="text"></textarea>
+            <div class="-buttons">
+                <button id="button-reroll">🔄 Reroll</button>
+                <button id="button-download">💾 Download</button>
+            </div>
+        </section>
 
         <section id="section-font">
             <h2>Font</h2>
-            <select name="font">
-                <option value="doom-small">Doom — small font</option>
-                <option value="gzdoom-doom-bigupper">Doom — menu font</option>
-                <option value="gzdoom-doom-bigfont">Doom — menu font (small caps only)</option>
-                <!-- TODO credit this somehow -  https://doomwiki.org/wiki/Eric_Ou_(Amuscaria) -->
-                <option value="custom-amuscaria-doom-nightmare">Doom — nightmare font</option>
-                <option value="heretic-small">Heretic/Hexen — small font</option>
-                <option value="heretic-menu">Heretic — menu font</option>
-                <option value="hexen-menu">Hexen — menu font</option>
-                <option value="chex-small">Chex Quest — small font</option>
-                <option value="strife-small">Strife — small font</option>
-                <option value="strife-small2">Strife — alt small font</option>
-                <option value="strife-menu-gzdoom">Strife — menu font</option>
-                <!--
-                <option>HacX — small font</option>
-                <option>HacX — menu font</option>
-                <option>FreeDoom — small font (STCFN*)</option>
-                <option>FreeDoom — menu font (inferred from menu graphics)</option>
-                -->
-                <option value="zdoom-console">ZDoom — console font (confont)</option>
-                <!-- TODO fonts from popular megawads, perhaps?  like eternal doom had one, maybe other recent stuff does too -->
-            </select>
-            <p>Doom and Strife use hardcoded graphics for menu text, so they don't really have a "menu font" — the ones used here are from GZDoom, which reverse engineered and extended them.</p>
-            <p>Most fonts only handle numbers, basic punctuation, and English letters.  Doom and Strife menu fonts support extended Latin and Cyrillic.  ZDoom's console font supports all of Latin-1 (with some bonus symbols in C0).</p>
+            <ul class="radioset fonts" id="js-font-list">
+            </ul>
+            <p>Doom and Strife use prebuilt graphics for menu items and level names, so they don't really have a "menu font" — the ones used here are from GZDoom, which reverse engineered and extended them.</p>
+            <p>Most fonts only handle English letters, digits, and basic punctuation.  Strife's menu font has Latin-1 and Cyrillic letters; Doom's has extended Latin, Cyrillic, and Greek.  ZDoom's console font supports all of Latin-1.</p>
         </section>
-        <section id="section-scale">
+
+        <section id="section-options">
             <h2>Scale</h2>
             <div class="range-with-label"><input name="scale" type="range" min="1" max="12" step="1" value="3"> <output>4×</output></div>
-        </section>
-        <section id="section-kerning">
             <h2>Kerning</h2>
             <div class="range-with-label"><input name="kerning" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></div>
-        </section>
-        <section id="section-line-spacing">
             <h2>Line spacing</h2>
             <div class="range-with-label"><input name="line-spacing" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></div>
-        </section>
-        <section id="section-translation">
-            <h2>ZDoom color translation</h2>
-            <ul class="radioset translations">
-                <li><label><input name="translation" type="radio" value="" checked> None</label></li>
+
+            <h2>Alignment</h2>
+            <ul class="radioset alignment">
+                <li class="alignment-left"><label><input name="align" type="radio" value="0"><br>left</label></li>
+                <li class="alignment-center"><label><input name="align" type="radio" value="0.5" checked><br>center</label></li>
+                <li class="alignment-right"><label><input name="align" type="radio" value="1"><br>right</label></li>
             </ul>
-        </section>
-        <section id="section-syntax">
+
+            <h2>Page</h2>
+            <ul class="radioset">
+                <li><label><input name="bg" type="checkbox"> Background color: <input name="bgcolor" type="color" value="#fff" disabled></label></li>
+                <li><label>
+                    <input name="wrap" type="checkbox">
+                    Word wrap at
+                    <input name="wrap-width" type="number" size="5" value="100">
+                    <select name="wrap-units">
+                        <option selected>em</option>
+                        <option>px</option>
+                        <option>spaces</option>
+                    </select>
+                    <br>
+                    Overflow handling:
+                    <select name="overflow">
+                        <option selected>extend</option>
+                        <option>truncate</option>
+                    </select>
+                </label></li>
+                <li><label><input name="solo" type="checkbox"> Hide controls</label></li>
+            </ul>
+
             <h2>Syntax</h2>
             <ul class="radioset syntax">
                 <li><label><input name="syntax" type="radio" value="none" checked> Plain text</label></li>
@@ -265,21 +342,19 @@
                 </li>
             </ul>
         </section>
-        <section id="section-page">
-            <h2>Page</h2>
-            <div>
-                <input name="bg" type="checkbox"> <label>Background color: <input name="bgcolor" type="color" value="#fff" disabled></label>
-            </div>
-            <p>Psst — you can also click the button to the right of a translation.</p>
-        </section>
-        <section id="section-alignment">
-            <h2>Alignment</h2>
-            <ul class="radioset alignment">
-                <li class="alignment-left"><label><input name="align" type="radio" value="0"><br>left</label></li>
-                <li class="alignment-center"><label><input name="align" type="radio" value="0.5" checked><br>center</label></li>
-                <li class="alignment-right"><label><input name="align" type="radio" value="1"><br>right</label></li>
+
+        <section id="section-color">
+            <h2>Color</h2>
+            <ul class="radioset translations">
+                <li><label><input name="translation" type="radio" value="" checked> Default</label></li>
             </ul>
+            <p>These are ZDoom's standard color translations and use the ZDoom recoloring algorithm.</p>
+            <p>The buttons on the right will set the background color.</p>
         </section>
+
+        <footer>
+            a toy made by <a href="https://eev.ee/">eevee</a>.  most of these fonts are directly sourced from or originally based on commercial works; use at your own peril!
+        </footer>
     </form>
 </body>
 </html>
