@@ -80,6 +80,10 @@ function rgb(rrggbb) {
     return ret;
 }
 
+function random_choice(list) {
+    return list[Math.floor(Math.random() * list.length)];
+}
+
 // XXX absolutely no idea what this was for
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
 
@@ -345,55 +349,70 @@ for (let [name, trans] of Object.entries(ZDOOM_TRANSLATIONS)) {
 }
 
 
-const SAMPLE_MESSAGES = [
+const SAMPLE_MESSAGES = [{
     // Doom 1
-    "please don't leave, there's more\ndemons to toast!",
-    "let's beat it -- this is turning\ninto a bloodbath!",
-    "i wouldn't leave if i were you.\ndos is much worse.",
-    "you're trying to say you like dos\nbetter than me, right?",
-    "don't leave yet -- there's a\ndemon around that corner!",
-    "ya know, next time you come in here\ni'm gonna toast ya.",
-    "go ahead and leave. see if i care.",
-
+    font: 'doom-small',
+    messages: [
+        "please don't leave, there's more\ndemons to toast!",
+        "let's beat it -- this is turning\ninto a bloodbath!",
+        "i wouldn't leave if i were you.\ndos is much worse.",
+        "you're trying to say you like dos\nbetter than me, right?",
+        "don't leave yet -- there's a\ndemon around that corner!",
+        "ya know, next time you come in here\ni'm gonna toast ya.",
+        "go ahead and leave. see if i care.",
+    ],
+}, {
     // Doom II
-    "you want to quit?\nthen, thou hast lost an eighth!",
-    "don't go now, there's a \ndimensional shambler waiting\nat the dos prompt!",
-    "get outta here and go back\nto your boring programs.",
-    "if i were your boss, i'd \n deathmatch ya in a minute!",
-    "look, bud. you leave now\nand you forfeit your body count!",
-    "just leave. when you come\nback, i'll be waiting with a bat.",
-    "you're lucky i don't smack\nyou for thinking about leaving.",
-
+    font: 'doom-small',
+    messages: [
+        "you want to quit?\nthen, thou hast lost an eighth!",
+        "don't go now, there's a \ndimensional shambler waiting\nat the dos prompt!",
+        "get outta here and go back\nto your boring programs.",
+        "if i were your boss, i'd \n deathmatch ya in a minute!",
+        "look, bud. you leave now\nand you forfeit your body count!",
+        "just leave. when you come\nback, i'll be waiting with a bat.",
+        "you're lucky i don't smack\nyou for thinking about leaving.",
+    ],
+}, {
     // Strife
-    "where are you going?!\nwhat about the rebellion?",
-    "carnage interruptus...\nwhat a tease!",
-    "but you're the hope\n-- my only chance!!",
-    "nobody walks out on blackbird.",
-    "i thought you were different...",
-    "fine! just kill and run!",
-    "you can quit...\nbut you can't hide...",
-    "whaaa, what's the matter?\nmommy says dinnertime?",
-
-    // Chex
-    "Don't quit now, there are still\nflemoids on the loose!",
-    "Don't give up -- the flemoids will\nget the upper hand!",
-    "Don't leave now.\nWe need your help!",
-    "I hope you're just taking a\nbreak for Chex(R) party mix.",
-    "Don't quit now!\nWe need your help!",
-    "Don't abandon the\nIntergalactic Federation of Cereals!",
-    "The real Chex(R) Warrior\nwouldn't give up so fast!",
-
+    font: 'strife-small2',
+    messages: [
+        "where are you going?!\nwhat about the rebellion?",
+        "carnage interruptus...\nwhat a tease!",
+        "but you're the hope\n-- my only chance!!",
+        "nobody walks out on blackbird.",
+        "i thought you were different...",
+        "fine! just kill and run!",
+        "you can quit...\nbut you can't hide...",
+        "whaaa, what's the matter?\nmommy says dinnertime?",
+    ],
+}, {
+    // Chex Quest
+    font: 'chex-small',
+    messages: [
+        "Don't quit now, there are still\nflemoids on the loose!",
+        "Don't give up -- the flemoids will\nget the upper hand!",
+        "Don't leave now.\nWe need your help!",
+        "I hope you're just taking a\nbreak for Chex(R) party mix.",
+        "Don't quit now!\nWe need your help!",
+        "Don't abandon the\nIntergalactic Federation of Cereals!",
+        "The real Chex(R) Warrior\nwouldn't give up so fast!",
+    ],
+}, {
     // Pangrams
-    "The quick brown fox jumps over the lazy dog.",
-    "Jived fox nymph grabs quick waltz.",
-    "Glib jocks quiz nymph to vex dwarf.",
-    "Sphinx of black quartz, judge my vow.",
-    "How vexingly quick daft zebras jump!",
-    "The five boxing wizards jump quickly.",
-    "Pack my box with five dozen liquor jugs.",
-    "Jackdaws love my big sphynx of quartz.",
-    "Cwm fjord bank glyphs vext quiz.",
-];
+    font: null,  // random
+    messages: [
+        "The quick brown fox jumps over the lazy dog.",
+        "Jived fox nymph grabs quick waltz.",
+        "Glib jocks quiz nymph to vex dwarf.",
+        "Sphinx of black quartz, judge my vow.",
+        "How vexingly quick daft zebras jump!",
+        "The five boxing wizards jump quickly.",
+        "Pack my box with five dozen liquor jugs.",
+        "Jackdaws love my big sphynx of quartz.",
+        "Cwm fjord bank glyphs vext quiz.",
+    ],
+}];
 
 // This size should be big enough to fit any character!
 // FIXME could just auto resize when it's too small
@@ -470,9 +489,8 @@ class BossBrain {
         let textarea = this.form.elements['text'];
         // If the textarea is blank (which may not be the case if browser
         // navigation restored previously-typed text!), populate it.
-        // FIXME but then you're stuck on the same one.  also it should use the matching font!
         if (textarea.value === "") {
-            textarea.value = SAMPLE_MESSAGES[Math.floor(Math.random() * SAMPLE_MESSAGES.length)];
+            this.randomize();
         }
         let redraw_handler = this.redraw_current_text.bind(this);
         textarea.addEventListener('input', redraw_handler);
@@ -568,13 +586,7 @@ class BossBrain {
         // Fonts were already loaded by init() so we are good to go
         this.redraw_current_text();
 
-        function handle_radioset(ev) {
-            let ul = ev.target.closest('ul.radioset');
-            for (let li of ul.querySelectorAll('li.selected')) {
-                li.classList.remove('selected');
-            }
-            ev.target.closest('ul.radioset > li').classList.add('selected');
-        }
+        let handle_radioset = ev => this._update_radioset(ev.target.closest('ul.radioset'));
         for (let ul of document.querySelectorAll('ul.radioset')) {
             ul.addEventListener('change', handle_radioset);
 
@@ -585,6 +597,43 @@ class BossBrain {
                 }
             }
         }
+
+        // Utility buttons
+        document.querySelector('#button-randomize').addEventListener('click', () => {
+            this.randomize();
+        });
+    }
+
+    _update_radioset(ul) {
+        for (let li of ul.querySelectorAll('li.selected')) {
+            li.classList.remove('selected');
+        }
+        for (let radio of ul.querySelectorAll('input[type=radio]:checked')) {
+            radio.closest('ul.radioset > li').classList.add('selected');
+        }
+    }
+    _update_all_radiosets() {
+        for (let ul of document.querySelectorAll('ul.radioset')) {
+            this._update_radioset(ul);
+        }
+    }
+
+    // Roll a random message and color
+    randomize() {
+        let group = random_choice(SAMPLE_MESSAGES);
+        this.form.elements['text'].value = random_choice(group.messages);
+
+        this.form.elements['font'].value = group.font ?? random_choice(Object.keys(DOOM_FONTS));
+
+        if (Math.random() < 0.2) {
+            this.form.elements['translation'].value = '';
+        }
+        else {
+            this.form.elements['translation'].value = random_choice(Object.keys(ZDOOM_TRANSLATIONS));
+        }
+
+        this._update_all_radiosets();
+        this.redraw_current_text();
     }
 
     set_background(bgcolor) {
