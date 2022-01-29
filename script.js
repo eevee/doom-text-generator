@@ -22,7 +22,6 @@
 // TODO nice to do while i'm here:
 // - button to reroll a random message
 // - modernize js
-//   - module?
 //   - load the json, as json
 //   - i feel like i need a better way of handling the form elements, maybe i need a little lib of thin wrappers idk
 //     - need to populate them on load from the fragment
@@ -81,6 +80,7 @@ function rgb(rrggbb) {
     return ret;
 }
 
+// XXX absolutely no idea what this was for
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
 
 // TODO does vanilla do anything like this??  is this converted to the palette?
@@ -395,448 +395,460 @@ const SAMPLE_MESSAGES = [
     "Cwm fjord bank glyphs vext quiz.",
 ];
 
-// Final canvas on the actual page
-let canvas;
-// Canvas we do most of our drawing to, at 1x
-let buffer_canvas = mk('canvas');
 // This size should be big enough to fit any character!
 // FIXME could just auto resize when it's too small
 const TRANS_WIDTH = 32;
 const TRANS_HEIGHT = 32;
 let trans_canvas = mk('canvas', {width: TRANS_WIDTH, height: TRANS_HEIGHT});
-let textarea;
 let font_images = {};
 
-function redraw(args) {
-    let text = args.text;
-    let syntax = args.syntax;
-    if (syntax !== 'acs') {
-        syntax = 'none';
-    }
-    let scale = args.scale || 1;
-    let kerning = args.kerning || 0;
-    let default_font = args.default_font || 'doom-small';
-    let default_translation = args.default_translation || null;
-    let alignment = args.alignment;
-    if (alignment === null || alignment === undefined) {
-        alignment = 0.5;
-    }
-    let background = args.background;
+class BossBrain {
+    constructor() {
+        // Visible canvas on the actual page
+        this.final_canvas = document.querySelector('canvas');
+        // Canvas we do most of our drawing to, at 1x
+        this.buffer_canvas = mk('canvas');
 
-    if (syntax === 'acs') {
-        text = text.replace(/\\\n/g, "").replace(/\\n/g, "\n");
+        this.font_images = {}  // fontname => source image
+
+        this.form = document.querySelector('form');
+
+        this.init_form();
     }
 
-    let lines = text.split('\n');
-
-    let font = DOOM_FONTS[default_font];
-    // XXX handle error?
-
-    // Compute some layout metrics first
-    let draws = [];
-    let line_stats = [];
-    let y = 0;
-    for (let [l, line] of lines.entries()) {
-        // Note: with ACS, the color reverts at the end of every line
-        let translation = default_translation;
-        let x = 0;
-        // TODO line height may need adjustment if there's a character that extends above the top of the line
-        // TODO options for this?
-
-        let character_regex;
-        if (syntax === 'acs') {
-            character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./g;
+    async init() {
+        let load_promises = [];
+        for (let [fontname, fontdef] of Object.entries(DOOM_FONTS)) {
+            let img = new Image;
+            img.src = fontdef.image;
+            font_images[fontname] = img;
+            load_promises.push(img.decode());
+            //document.body.append(img);
         }
-        else {
-            character_regex = /./g;
-        }
-        let match;
-        while (match = character_regex.exec(line)) {
-            let ch = match[0];
-            if (match[1] !== undefined) {
-                // ACS translation by name
-                // TODO this fudges the aliasing a bit
-                // TODO doesn't support "untranslated"
-                translation = match[1].toLowerCase().replace(/ /g, '').replace(/grey/g, 'gray');
-                if (ZDOOM_TRANSLATIONS[translation] === undefined) {
-                    // TODO warn?
-                    translation = null;
-                }
-                continue;
-            }
-            else if (match[2] !== undefined) {
-                // ACS translation code
-                translation = TRANSLATION_ACS_INDEX[match[2]];
-                continue;
-            }
-            else if (match[3] !== undefined) {
-                // Octal escape
-                ch = String.fromCharCode(parseInt(match[3], 8));
-            }
-            else if (match[4] !== undefined) {
-                // Hex escape
-                ch = String.fromCharCode(parseInt(match[4], 16));
-            }
-            else if (match[5] !== undefined) {
-                // Literal escape (\\ or \")
-                ch = match[5];
-            }
 
-            if (x > 0) {
-                x += (font.kerning || 0);
-                x += kerning;
-            }
+        await Promise.all(load_promises);
 
-            let glyph = font.glyphs[ch];
-            // TODO better handle lowercase remapping, turn anything else into...  something?
-            if (! glyph) {
-                if (ch === ' ') {
-                    // With no explicit space glyph, fall back to the font prop
-                    // TODO this isn't always populated oops
-                    x += (font.space_width || 0);
-                    continue;
-                }
 
-                // Try changing the case
-                if (ch !== ch.toUpperCase()) {
-                    glyph = font.glyphs[ch.toUpperCase()];
-                }
-                else if (ch !== ch.toLowerCase()) {
-                    glyph = font.glyphs[ch.toLowerCase()];
-                }
+        // TODO read fragment
 
-                // FIXME if still no good, do some fallback
-
-                if (! glyph)
-                    continue;
-            }
-
-            draws.push({
-                glyph: glyph,
-                lineno: l,
-                x: x,
-                translation: translation,
+        let list = document.querySelector('#js-font-list');
+        for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
+            // TODO pop open a lil info overlay for each of these
+            this.render_text({
+                text: "Hello, world!",
+                default_font: ident,
+                scale: 2,
             });
+            let name_canvas = mk('canvas', {width: this.final_canvas.width, height: this.final_canvas.height});
+            name_canvas.getContext('2d').drawImage(this.final_canvas, 0, 0);
 
-            x += glyph.width;
+            let glyphs = DOOM_FONTS[ident].glyphs;
+            let li = mk('li',
+                mk('label',
+                    mk('input', {type: 'radio', name: 'font', value: ident}),
+                    " ",
+                    fontdef.meta.name,
+                    mk('br'),
+                    name_canvas,
+                ),
+            );
+            list.append(li);
         }
 
-        line_stats.push({
-            width: x,
-            x0: 0,  // updated below
-            y0: y,
+        if (! this.form.elements['font'].value) {
+            this.form.elements['font'].value = 'doom-small';
+        }
+    }
+
+    async init_form() {
+        await this.init();
+
+        this.form.addEventListener('submit', ev => {
+            ev.preventDefault();
+        });
+        let canvas_wrapper = document.getElementById('canvas-wrapper');
+
+        let textarea = this.form.elements['text'];
+        // If the textarea is blank (which may not be the case if browser
+        // navigation restored previously-typed text!), populate it.
+        // FIXME but then you're stuck on the same one.  also it should use the matching font!
+        if (textarea.value === "") {
+            textarea.value = SAMPLE_MESSAGES[Math.floor(Math.random() * SAMPLE_MESSAGES.length)];
+        }
+        let redraw_handler = this.redraw_current_text.bind(this);
+        textarea.addEventListener('input', redraw_handler);
+
+        // Font
+        let font_ctl = this.form.elements['font'];
+        document.querySelector('#js-font-list').addEventListener('change', ev => {
+            this.form.classList.toggle('using-console-font', font_ctl.value === 'zdoom-console');
+            this.redraw_current_text();
+        });
+        this.form.classList.toggle('using-console-font', font_ctl.value === 'zdoom-console');
+
+        // Scale
+        let scale_ctl = this.form.elements['scale'];
+        function update_scale_label() {
+            scale_ctl.parentNode.querySelector('output').textContent = `${scale_ctl.value}×`;
+        }
+        scale_ctl.addEventListener('input', ev => {
+            update_scale_label();
+            this.redraw_current_text();
+        });
+        update_scale_label();
+
+        // Kerning
+        let kerning_ctl = this.form.elements['kerning'];
+        function update_kerning_label() {
+            kerning_ctl.parentNode.querySelector('output').textContent = String(kerning_ctl.value);
+        }
+        kerning_ctl.addEventListener('input', ev => {
+            update_kerning_label();
+            this.redraw_current_text();
+        });
+        update_kerning_label();
+
+        // Alignment
+        let alignment_list = this.form.querySelector('ul.alignment');
+        alignment_list.addEventListener('change', redraw_handler);
+
+        // Syntax
+        let syntax_list = this.form.querySelector('ul.syntax');
+        syntax_list.addEventListener('change', redraw_handler);
+
+        // Page properties
+        let bg_ctl = this.form.elements['bg'];
+        let bgcolor_ctl = this.form.elements['bgcolor'];
+        function set_background(bgcolor) {
+            if (bgcolor === null) {
+                bg_ctl.checked = false;
+                bgcolor_ctl.disabled = true;
+            }
+            else {
+                bg_ctl.checked = true;
+                bgcolor_ctl.disabled = false;
+                bgcolor_ctl.value = bgcolor;
+            }
+            update_background();
+            this.redraw_current_text();
+        }
+        function update_background() {
+            if (bg_ctl.checked) {
+                canvas_wrapper.style.backgroundColor = bgcolor_ctl.value;
+            }
+            else {
+                canvas_wrapper.style.backgroundColor = 'transparent';
+            }
+        }
+        bg_ctl.addEventListener('click', ev => {
+            bgcolor_ctl.disabled = ! bg_ctl.checked;
+            update_background();
+            this.redraw_current_text();
+        });
+        bgcolor_ctl.addEventListener('input', ev => {
+            set_background(bgcolor_ctl.value);
+        });
+        bgcolor_ctl.disabled = ! bg_ctl.checked;
+        update_background();
+
+        // Translations
+        function translation_to_gradient(spans) {
+            let parts = ["linear-gradient(to right"];
+            for (let span of spans) {
+                // color + position
+                parts.push(`, ${span[2].hex} ${span[0] / 255 * 100}%`);
+                parts.push(`, ${span[3].hex} ${span[1] / 255 * 100}%`);
+            }
+            parts.push(")");
+            return parts.join('');
+        }
+        let trans_list = this.form.querySelector('.translations');
+        for (let [name, trans] of Object.entries(ZDOOM_TRANSLATIONS)) {
+            let normal_example = mk('div.translation-example.-normal');
+            normal_example.style.backgroundImage = translation_to_gradient(trans.normal);
+            let console_example = mk('div.translation-example.-console');
+            console_example.style.backgroundImage = translation_to_gradient(trans.console);
+
+            trans_list.append(mk('li', mk('label',
+                mk('input', {name: 'translation', type: 'radio', value: name}),
+                normal_example,
+                console_example,
+                mk('span.name', name),
+                mk('span.acs-escape', '\\c' + trans.acs_code),
+                mk('button', {type: 'button', style: `background: ${trans.flat.hex}`, 'data-hex': trans.flat.hex}),
+            )));
+        }
+        trans_list.addEventListener('change', redraw_handler);
+        // Catch button clicks
+        trans_list.addEventListener('click', ev => {
+            if (ev.target.tagName !== 'BUTTON')
+                return;
+
+            set_background(ev.target.getAttribute('data-hex'));
         });
 
-        y += font.line_height;
-    }
+        // Fonts were already loaded by init() so we are good to go
+        this.redraw_current_text();
 
-    // Resize the canvas to fit snugly
-    let canvas_width = Math.max(...Object.values(line_stats).map(line_stat => line_stat.width));
-    let canvas_height = y;
-    buffer_canvas.width = canvas_width;
-    buffer_canvas.height = canvas_height;
-    canvas.width = canvas_width * scale;
-    canvas.height = canvas_height * scale;
-    if (canvas_width === 0 || canvas_height === 0) {
-        return;
-    }
-
-    // Align text horizontally
-    if (alignment > 0) {
-        for (let line_stat of line_stats) {
-            line_stat.x0 = Math.floor((canvas_width - line_stat.width) * alignment);
+        function handle_radioset(ev) {
+            let ul = ev.target.closest('ul.radioset');
+            for (let li of ul.querySelectorAll('li.selected')) {
+                li.classList.remove('selected');
+            }
+            ev.target.closest('ul.radioset > li').classList.add('selected');
         }
-    }
+        for (let ul of document.querySelectorAll('ul.radioset')) {
+            ul.addEventListener('change', handle_radioset);
 
-    // And draw!
-    let ctx = buffer_canvas.getContext('2d');
-    for (let draw of draws) {
-        let line_stat = line_stats[draw.lineno];
-        let glyph = draw.glyph;
-        let px = line_stat.x0 + (glyph.dx || 0) + draw.x;
-        let py = line_stat.y0 + (glyph.dy || 0);
-        if (draw.translation) {
-            console.log(draw.translation);
-            // Argh, we need to translate
-            let transdef = ZDOOM_TRANSLATIONS[draw.translation];
-            let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
-            // First draw the character to the dummy canvas -- note we can't
-            // draw it to this canvas and then alter it, because negative
-            // kerning might make it overlap an existing character we shouldn't
-            // be translating
-            let trans_ctx = trans_canvas.getContext('2d');
-            trans_ctx.clearRect(0, 0, glyph.width, glyph.height);
-            trans_ctx.drawImage(
-                font_images[default_font],
-                glyph.x, glyph.y, glyph.width, glyph.height,
-                0, 0, glyph.width, glyph.height);
-
-            // Now translate it in place
-            let imagedata = trans_ctx.getImageData(0, 0, glyph.width, glyph.height);
-            let pixels = imagedata.data;
-            for (let i = 0; i < pixels.length; i += 4) {
-                if (pixels[i + 3] === 0)
-                    continue;
-
-                // FIXME these are...  part of the font definition i guess?
-                let lightness = (pixels[i + 0] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
-                lightness = (lightness - font.lightness_range[0]) / (font.lightness_range[1] - font.lightness_range[0]);
-                let l = Math.max(0, Math.min(255, Math.floor(lightness * 256)));
-                //console.log(pixels[i], pixels[i+1], pixels[i+2], lightness, l);
-                for (let span of trans) {
-                    if (span[0] <= l && l <= span[1]) {
-                        let t = Math.floor(256 * (l - span[0]) / (span[1] - span[0]));
-                        let c0 = span[2];
-                        let c1 = span[3];
-                        pixels[i + 0] = c0[0] + Math.floor((c1[0] - c0[0]) * t / 256);
-                        pixels[i + 1] = c0[1] + Math.floor((c1[1] - c0[1]) * t / 256);
-                        pixels[i + 2] = c0[2] + Math.floor((c1[2] - c0[2]) * t / 256);
-                        //console.log("...", t, c0, c1, pixels[i], pixels[i+1], pixels[i+2]);
-                        break;
-                    }
+            // Highlight whatever's selected /now/
+            for (let radio of ul.querySelectorAll('input[type=radio]')) {
+                if (radio.checked) {
+                    radio.closest('ul.radioset > li').classList.add('selected');
                 }
             }
-            trans_ctx.putImageData(imagedata, 0, 0);
-
-            // Finally blit it onto the final canvas.  Note that we do NOT put
-            // the image data directly, since that overwrites rather than
-            // compositing
-            ctx.drawImage(
-                trans_canvas,
-                0, 0, glyph.width, glyph.height,
-                px, py, glyph.width, glyph.height);
-        }
-        else {
-            // Simple case: no translation is a straight blit
-            ctx.drawImage(
-                font_images[default_font],
-                glyph.x, glyph.y, glyph.width, glyph.height,
-                px, py, glyph.width, glyph.height);
         }
     }
 
-    // Finally, scale up the offscreen canvas
-    let final_ctx = canvas.getContext('2d');
-    if (background) {
-        final_ctx.fillStyle = background;
-        final_ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    else {
-        final_ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-    final_ctx.imageSmoothingEnabled = false;
-    final_ctx.drawImage(buffer_canvas, 0, 0, canvas.width, canvas.height);
-}
-
-async function init() {
-    // Init globals
-    canvas = document.querySelector('canvas');
-
-    let load_promises = [];
-    for (let [fontname, fontdef] of Object.entries(DOOM_FONTS)) {
-        let img = new Image;
-        img.src = fontdef.image;
-        font_images[fontname] = img;
-        load_promises.push(img.decode());
-        //document.body.append(img);
-    }
-
-    await Promise.all(load_promises);
-
-
-    let form = document.querySelector('form');
-    // TODO read fragment
-
-
-    let list = document.querySelector('#js-font-list');
-    for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
-        // TODO pop open a lil info overlay for each of these
-        redraw({
-            text: "Hello, world!",
-            default_font: ident,
-            scale: 2,
-        });
-        let name_canvas = mk('canvas', {width: canvas.width, height: canvas.height});
-        name_canvas.getContext('2d').drawImage(canvas, 0, 0);
-
-        let glyphs = DOOM_FONTS[ident].glyphs;
-        let li = mk('li',
-            mk('label',
-                mk('input', {type: 'radio', name: 'font', value: ident}),
-                " ",
-                fontdef.meta.name,
-                mk('br'),
-                name_canvas,
-            ),
-        );
-        list.append(li);
-    }
-
-    if (! form.elements['font'].value) {
-        form.elements['font'].value = 'doom-small';
-    }
-}
-
-window.addEventListener('load', async ev => {
-    await init();
-
-    let form = document.querySelector('form');
-    form.addEventListener('submit', ev => {
-        ev.preventDefault();
-    });
-    let canvas_wrapper = document.getElementById('canvas-wrapper');
-    function redraw_current_text() {
-        redraw({
-            text: textarea.value,
-            syntax: form.elements['syntax'].value,
-            scale: form.elements['scale'].value,
-            kerning: parseInt(form.elements['kerning'].value, 10),
-            default_font: form.elements['font'].value,
-            default_translation: form.elements['translation'].value || null,
-            alignment: form.elements['align'].value,
-            background: form.elements['bg'].checked ? form.elements['bgcolor'].value : null,
+    redraw_current_text() {
+        let elements = this.form.elements;
+        this.render_text({
+            text: elements['text'].value,
+            syntax: elements['syntax'].value,
+            scale: elements['scale'].value,
+            kerning: parseInt(elements['kerning'].value, 10),
+            default_font: elements['font'].value,
+            default_translation: elements['translation'].value || null,
+            alignment: elements['align'].value,
+            background: elements['bg'].checked ? elements['bgcolor'].value : null,
         });
 
-        let data = new FormData(form);
+        let data = new FormData(this.form);
         history.replaceState(null, document.title, '#' + new URLSearchParams(data));
     }
 
-    textarea = document.querySelector('textarea');
-    // If the textarea is blank (which may not be the case if browser
-    // navigation restored previously-typed text!), populate it.
-    // FIXME but then you're stuck on the same one.  also it should use the matching font!
-    if (textarea.value === "") {
-        textarea.value = SAMPLE_MESSAGES[Math.floor(Math.random() * SAMPLE_MESSAGES.length)];
-    }
-    textarea.addEventListener('input', redraw_current_text);
-
-    // Font
-    let font_ctl = form.elements['font'];
-    document.querySelector('#js-font-list').addEventListener('change', ev => {
-        form.classList.toggle('using-console-font', font_ctl.value === 'zdoom-console');
-        redraw_current_text();
-    });
-    form.classList.toggle('using-console-font', font_ctl.value === 'zdoom-console');
-
-    // Scale
-    let scale_ctl = form.elements['scale'];
-    function update_scale_label() {
-        scale_ctl.parentNode.querySelector('output').textContent = `${scale_ctl.value}×`;
-    }
-    scale_ctl.addEventListener('input', ev => {
-        update_scale_label();
-        redraw_current_text();
-    });
-    update_scale_label();
-
-    // Kerning
-    let kerning_ctl = form.elements['kerning'];
-    function update_kerning_label() {
-        kerning_ctl.parentNode.querySelector('output').textContent = String(kerning_ctl.value);
-    }
-    kerning_ctl.addEventListener('input', ev => {
-        update_kerning_label();
-        redraw_current_text();
-    });
-    update_kerning_label();
-
-    // Alignment
-    let alignment_list = form.querySelector('ul.alignment');
-    alignment_list.addEventListener('change', redraw_current_text);
-
-    // Syntax
-    let syntax_list = form.querySelector('ul.syntax');
-    syntax_list.addEventListener('change', redraw_current_text);
-
-    // Page properties
-    let bg_ctl = form.elements['bg'];
-    let bgcolor_ctl = form.elements['bgcolor'];
-    function set_background(bgcolor) {
-        if (bgcolor === null) {
-            bg_ctl.checked = false;
-            bgcolor_ctl.disabled = true;
+    render_text(args) {
+        let text = args.text;
+        let syntax = args.syntax;
+        if (syntax !== 'acs') {
+            syntax = 'none';
         }
-        else {
-            bg_ctl.checked = true;
-            bgcolor_ctl.disabled = false;
-            bgcolor_ctl.value = bgcolor;
+        let scale = args.scale || 1;
+        let kerning = args.kerning || 0;
+        let default_font = args.default_font || 'doom-small';
+        let default_translation = args.default_translation || null;
+        let alignment = args.alignment;
+        if (alignment === null || alignment === undefined) {
+            alignment = 0.5;
         }
-        update_background();
-        redraw_current_text();
-    }
-    function update_background() {
-        if (bg_ctl.checked) {
-            canvas_wrapper.style.backgroundColor = bgcolor_ctl.value;
-        }
-        else {
-            canvas_wrapper.style.backgroundColor = 'transparent';
-        }
-    }
-    bg_ctl.addEventListener('click', ev => {
-        bgcolor_ctl.disabled = ! bg_ctl.checked;
-        update_background();
-        redraw_current_text();
-    });
-    bgcolor_ctl.addEventListener('input', ev => {
-        set_background(bgcolor_ctl.value);
-    });
-    bgcolor_ctl.disabled = ! bg_ctl.checked;
-    update_background();
+        let background = args.background;
 
-    // Translations
-    function translation_to_gradient(spans) {
-        let parts = ["linear-gradient(to right"];
-        for (let span of spans) {
-            // color + position
-            parts.push(`, ${span[2].hex} ${span[0] / 255 * 100}%`);
-            parts.push(`, ${span[3].hex} ${span[1] / 255 * 100}%`);
+        if (syntax === 'acs') {
+            text = text.replace(/\\\n/g, "").replace(/\\n/g, "\n");
         }
-        parts.push(")");
-        return parts.join('');
-    }
-    let trans_list = form.querySelector('.translations');
-    for (let [name, trans] of Object.entries(ZDOOM_TRANSLATIONS)) {
-        let normal_example = mk('div.translation-example.-normal');
-        normal_example.style.backgroundImage = translation_to_gradient(trans.normal);
-        let console_example = mk('div.translation-example.-console');
-        console_example.style.backgroundImage = translation_to_gradient(trans.console);
 
-        trans_list.append(mk('li', mk('label',
-            mk('input', {name: 'translation', type: 'radio', value: name}),
-            normal_example,
-            console_example,
-            mk('span.name', name),
-            mk('span.acs-escape', '\\c' + trans.acs_code),
-            mk('button', {type: 'button', style: `background: ${trans.flat.hex}`, 'data-hex': trans.flat.hex}),
-        )));
-    }
-    trans_list.addEventListener('change', redraw_current_text);
-    // Catch button clicks
-    trans_list.addEventListener('click', ev => {
-        if (ev.target.tagName !== 'BUTTON')
+        let lines = text.split('\n');
+
+        let font = DOOM_FONTS[default_font];
+        // XXX handle error?
+
+        // Compute some layout metrics first
+        let draws = [];
+        let line_stats = [];
+        let y = 0;
+        for (let [l, line] of lines.entries()) {
+            // Note: with ACS, the color reverts at the end of every line
+            let translation = default_translation;
+            let x = 0;
+            // TODO line height may need adjustment if there's a character that extends above the top of the line
+            // TODO options for this?
+
+            let character_regex;
+            if (syntax === 'acs') {
+                character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./g;
+            }
+            else {
+                character_regex = /./g;
+            }
+            let match;
+            while (match = character_regex.exec(line)) {
+                let ch = match[0];
+                if (match[1] !== undefined) {
+                    // ACS translation by name
+                    // TODO this fudges the aliasing a bit
+                    // TODO doesn't support "untranslated"
+                    translation = match[1].toLowerCase().replace(/ /g, '').replace(/grey/g, 'gray');
+                    if (ZDOOM_TRANSLATIONS[translation] === undefined) {
+                        // TODO warn?
+                        translation = null;
+                    }
+                    continue;
+                }
+                else if (match[2] !== undefined) {
+                    // ACS translation code
+                    translation = TRANSLATION_ACS_INDEX[match[2]];
+                    continue;
+                }
+                else if (match[3] !== undefined) {
+                    // Octal escape
+                    ch = String.fromCharCode(parseInt(match[3], 8));
+                }
+                else if (match[4] !== undefined) {
+                    // Hex escape
+                    ch = String.fromCharCode(parseInt(match[4], 16));
+                }
+                else if (match[5] !== undefined) {
+                    // Literal escape (\\ or \")
+                    ch = match[5];
+                }
+
+                if (x > 0) {
+                    x += (font.kerning || 0);
+                    x += kerning;
+                }
+
+                let glyph = font.glyphs[ch];
+                // TODO better handle lowercase remapping, turn anything else into...  something?
+                if (! glyph) {
+                    if (ch === ' ') {
+                        // With no explicit space glyph, fall back to the font prop
+                        // TODO this isn't always populated oops
+                        x += (font.space_width || 0);
+                        continue;
+                    }
+
+                    // Try changing the case
+                    if (ch !== ch.toUpperCase()) {
+                        glyph = font.glyphs[ch.toUpperCase()];
+                    }
+                    else if (ch !== ch.toLowerCase()) {
+                        glyph = font.glyphs[ch.toLowerCase()];
+                    }
+
+                    // FIXME if still no good, do some fallback
+
+                    if (! glyph)
+                        continue;
+                }
+
+                draws.push({
+                    glyph: glyph,
+                    lineno: l,
+                    x: x,
+                    translation: translation,
+                });
+
+                x += glyph.width;
+            }
+
+            line_stats.push({
+                width: x,
+                x0: 0,  // updated below
+                y0: y,
+            });
+
+            y += font.line_height;
+        }
+
+        // Resize the canvas to fit snugly
+        let canvas_width = Math.max(...Object.values(line_stats).map(line_stat => line_stat.width));
+        let canvas_height = y;
+        this.buffer_canvas.width = canvas_width;
+        this.buffer_canvas.height = canvas_height;
+        this.final_canvas.width = canvas_width * scale;
+        this.final_canvas.height = canvas_height * scale;
+        if (canvas_width === 0 || canvas_height === 0) {
             return;
-
-        set_background(ev.target.getAttribute('data-hex'));
-    });
-
-    // Fonts were already loaded by init() so we are good to go
-    redraw_current_text();
-
-    function handle_radioset(ev) {
-        let ul = ev.target.closest('ul.radioset');
-        for (let li of ul.querySelectorAll('li.selected')) {
-            li.classList.remove('selected');
         }
-        ev.target.closest('ul.radioset > li').classList.add('selected');
-    }
-    for (let ul of document.querySelectorAll('ul.radioset')) {
-        ul.addEventListener('change', handle_radioset);
 
-        // Highlight whatever's selected /now/
-        for (let radio of ul.querySelectorAll('input[type=radio]')) {
-            if (radio.checked) {
-                radio.closest('ul.radioset > li').classList.add('selected');
+        // Align text horizontally
+        if (alignment > 0) {
+            for (let line_stat of line_stats) {
+                line_stat.x0 = Math.floor((canvas_width - line_stat.width) * alignment);
             }
         }
+
+        // And draw!
+        let ctx = this.buffer_canvas.getContext('2d');
+        for (let draw of draws) {
+            let line_stat = line_stats[draw.lineno];
+            let glyph = draw.glyph;
+            let px = line_stat.x0 + (glyph.dx || 0) + draw.x;
+            let py = line_stat.y0 + (glyph.dy || 0);
+            if (draw.translation) {
+                console.log(draw.translation);
+                // Argh, we need to translate
+                let transdef = ZDOOM_TRANSLATIONS[draw.translation];
+                let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
+                // First draw the character to the dummy canvas -- note we can't
+                // draw it to this canvas and then alter it, because negative
+                // kerning might make it overlap an existing character we shouldn't
+                // be translating
+                let trans_ctx = trans_canvas.getContext('2d');
+                trans_ctx.clearRect(0, 0, glyph.width, glyph.height);
+                trans_ctx.drawImage(
+                    font_images[default_font],
+                    glyph.x, glyph.y, glyph.width, glyph.height,
+                    0, 0, glyph.width, glyph.height);
+
+                // Now translate it in place
+                let imagedata = trans_ctx.getImageData(0, 0, glyph.width, glyph.height);
+                let pixels = imagedata.data;
+                for (let i = 0; i < pixels.length; i += 4) {
+                    if (pixels[i + 3] === 0)
+                        continue;
+
+                    // FIXME these are...  part of the font definition i guess?
+                    let lightness = (pixels[i + 0] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+                    lightness = (lightness - font.lightness_range[0]) / (font.lightness_range[1] - font.lightness_range[0]);
+                    let l = Math.max(0, Math.min(255, Math.floor(lightness * 256)));
+                    //console.log(pixels[i], pixels[i+1], pixels[i+2], lightness, l);
+                    for (let span of trans) {
+                        if (span[0] <= l && l <= span[1]) {
+                            let t = Math.floor(256 * (l - span[0]) / (span[1] - span[0]));
+                            let c0 = span[2];
+                            let c1 = span[3];
+                            pixels[i + 0] = c0[0] + Math.floor((c1[0] - c0[0]) * t / 256);
+                            pixels[i + 1] = c0[1] + Math.floor((c1[1] - c0[1]) * t / 256);
+                            pixels[i + 2] = c0[2] + Math.floor((c1[2] - c0[2]) * t / 256);
+                            //console.log("...", t, c0, c1, pixels[i], pixels[i+1], pixels[i+2]);
+                            break;
+                        }
+                    }
+                }
+                trans_ctx.putImageData(imagedata, 0, 0);
+
+                // Finally blit it onto the final canvas.  Note that we do NOT put
+                // the image data directly, since that overwrites rather than
+                // compositing
+                ctx.drawImage(
+                    trans_canvas,
+                    0, 0, glyph.width, glyph.height,
+                    px, py, glyph.width, glyph.height);
+            }
+            else {
+                // Simple case: no translation is a straight blit
+                ctx.drawImage(
+                    font_images[default_font],
+                    glyph.x, glyph.y, glyph.width, glyph.height,
+                    px, py, glyph.width, glyph.height);
+            }
+        }
+
+        // Finally, scale up the offscreen canvas
+        let final_ctx = this.final_canvas.getContext('2d');
+        let aabb = [0, 0, this.final_canvas.width, this.final_canvas.height];
+        if (background) {
+            final_ctx.fillStyle = background;
+            final_ctx.fillRect(...aabb);
+        }
+        else {
+            final_ctx.clearRect(...aabb);
+        }
+        final_ctx.imageSmoothingEnabled = false;
+        final_ctx.drawImage(this.buffer_canvas, ...aabb);
     }
+}
+
+window.addEventListener('load', ev => {
+    window._icon_of_sin = new BossBrain;
 });
