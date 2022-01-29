@@ -3,25 +3,21 @@
 // more fonts?  some from popular megawads maybe?  hacx?  freedoom?
 // someone asked for build + quake fonts
 // .. also these https://forum.zdoom.org/viewtopic.php?f=37&t=33409&sid=d5022aefc120e44df307204f243589be
-// data is way too big, a lot of it could be computed on the fly trivially?
 // someday, bbcode...
 // better missing char handling
 // refreshing loses the selected translation
 // aspect ratio correction?
-// metrics twiddles -- customize spacing, space width, line height.  PADDING.  soft wrap?
+// metrics twiddles -- customize spacing, space width.  PADDING.
 // custom translations!
 // force into doom (heretic, hexen, ...) palette?
-// automatic wrapping, even?
 // allow dragging in a wad, and identify any fonts within it
 // little info popup about a font (source, copyright, character set...)
 //
-// TODO things people asked for:
-// - line spacing
 // TODO nice to do while i'm here:
 // - modernize js
 //   - load the json, as json
 //   - i feel like i need a better way of handling the form elements, maybe i need a little lib of thin wrappers idk
-//     - fragment should skip when value is default?
+//     - fragment should omit when value is default?
 //     - kerning and line spacing should support both a slider and a spinner?  or is that too much
 // - update the html
 //   - too much text?  popups?  not sure
@@ -567,19 +563,32 @@ class BossBrain {
         let syntax_list = this.form.querySelector('ul.syntax');
         syntax_list.addEventListener('change', redraw_handler);
 
-        // Page properties
+        // Background
+        // FIXME i suspect if you edit the fragment live, the bgcolor control will not update, sigh
         let bg_ctl = this.form.elements['bg'];
         let bgcolor_ctl = this.form.elements['bgcolor'];
         bg_ctl.addEventListener('click', ev => {
-            bgcolor_ctl.disabled = ! bg_ctl.checked;
+            this._fix_bg_controls();
             this.update_background();
             this.redraw_current_text();
         });
         bgcolor_ctl.addEventListener('input', ev => {
             this.set_background(bgcolor_ctl.value);
         });
-        bgcolor_ctl.disabled = ! bg_ctl.checked;
         this.update_background();
+
+        // Wrapping
+        this.form.elements['wrap'].addEventListener('change', () => {
+            this._fix_wrap_controls();
+            this.redraw_current_text();
+        });
+        for (let name of ['wrap-width', 'wrap-units'/*, 'overflow'*/]) {
+            this.form.elements[name].addEventListener('input', () => {
+                if (this.form.elements['wrap'].checked) {
+                    this.redraw_current_text();
+                }
+            });
+        }
 
         // Translations
         function translation_to_gradient(spans) {
@@ -624,7 +633,8 @@ class BossBrain {
         for (let ul of document.querySelectorAll('ul.radioset')) {
             ul.addEventListener('change', handle_radioset);
         }
-        this._update_all_radiosets();
+
+        this.fix_form();
 
         // Utility buttons
         document.querySelector('#button-randomize').addEventListener('click', () => {
@@ -687,6 +697,32 @@ class BossBrain {
         }
     }
 
+    _fix_bg_controls() {
+        this.form.elements['bgcolor'].disabled = ! this.form.elements['bg'].checked;
+    }
+
+    _fix_wrap_controls() {
+        let disabled = ! this.form.elements['wrap'].checked;
+        this.form.elements['wrap-width'].disabled = disabled;
+        this.form.elements['wrap-units'].disabled = disabled;
+        //this.form.elements['overflow'].disabled = disabled;
+    }
+
+    // Update the form with various internal consistency stuff
+    fix_form() {
+        this._update_all_radiosets();
+        this._fix_bg_controls();
+        this._fix_wrap_controls();
+
+        // XXX i feel like i'm repeating myself a bit.  what if they had a trigger instead
+        let scale_ctl = this.form.elements['scale'];
+        scale_ctl.parentNode.querySelector('output').textContent = `${scale_ctl.value}×`;
+        let kerning_ctl = this.form.elements['kerning'];
+        kerning_ctl.parentNode.querySelector('output').textContent = String(kerning_ctl.value);
+        let line_spacing_ctl = this.form.elements['line-spacing'];
+        line_spacing_ctl.parentNode.querySelector('output').textContent = String(line_spacing_ctl.value);
+    }
+
     update_fragment() {
         let data = new FormData(this.form);
         history.replaceState(null, document.title, '#' + new URLSearchParams(data));
@@ -736,12 +772,45 @@ class BossBrain {
 
     redraw_current_text() {
         let elements = this.form.elements;
+
+        let wrap = null;
+        if (elements['wrap'].checked) {
+            let n = Math.max(0, parseFloat(elements['wrap-width'].value));
+            let unit = elements['wrap-units'].value;
+            let scale = 1;
+            if (unit === 'em') {
+                let font = DOOM_FONTS[elements['font'].value];
+                if (font.glyphs['m']) {
+                    scale = font.glyphs['m'].width;
+                }
+                else if (font.glyphs['M']) {
+                    scale = font.glyphs['M'].width;
+                }
+                else {
+                    // ???
+                    scale = font.line_height;
+                }
+            }
+            else if (unit === 'sp') {
+                let font = DOOM_FONTS[elements['font'].value];
+                if (font.glyphs[' ']) {
+                    scale = font.glyphs[' '].width;
+                }
+                else {
+                    scale = font.space_width;
+                }
+            }
+
+            wrap = n * scale;
+        }
+
         this.render_text({
             text: elements['text'].value,
             syntax: elements['syntax'].value,
             scale: elements['scale'].value,
             kerning: parseInt(elements['kerning'].value, 10),
             line_spacing: parseInt(elements['line-spacing'].value, 10),
+            wrap: wrap,
             default_font: elements['font'].value,
             default_translation: elements['translation'].value || null,
             alignment: elements['align'].value,
@@ -767,6 +836,7 @@ class BossBrain {
             alignment = 0.5;
         }
         let background = args.background;
+        let wrap = args.wrap || null;
 
         if (syntax === 'acs') {
             text = text.replace(/\\\n/g, "").replace(/\\n/g, "\n");
@@ -781,10 +851,12 @@ class BossBrain {
         let draws = [];
         let line_stats = [];
         let y = 0;
-        for (let [l, line] of lines.entries()) {
+        let lineno = 0;
+        for (let line of lines) {
             // Note: with ACS, the color reverts at the end of every line
             let translation = default_translation;
             let x = 0;
+            let last_space_index = null;
             // TODO line height may need adjustment if there's a character that extends above the top of the line
             // TODO options for this?
 
@@ -827,6 +899,11 @@ class BossBrain {
                     ch = match[5];
                 }
 
+                let is_space = (ch === ' ' || ch === '\t');
+                if (is_space) {
+                    last_space_index = draws.length;
+                }
+
                 if (x > 0) {
                     x += (font.kerning || 0);
                     x += kerning;
@@ -857,13 +934,47 @@ class BossBrain {
                 }
 
                 draws.push({
+                    _ch: ch,
                     glyph: glyph,
-                    lineno: l,
+                    lineno: lineno,
                     x: x,
                     translation: translation,
+                    is_space: is_space,
                 });
 
                 x += glyph.width;
+
+                if (! is_space && wrap !== null && x > wrap && last_space_index !== null) {
+                    // We overshot the wrap limit!  Backtrack one word and fix this by breaking the
+                    // line.  (Note that if we never saw a space, this is just a long word and
+                    // there's nothing we can do about it.)
+                    let space = draws[last_space_index];
+
+                    // End the current line
+                    line_stats.push({
+                        width: space.x,
+                        x0: 0,  // updated below
+                        y0: y,
+                    });
+                    y += font.line_height + line_spacing;
+                    lineno += 1;
+
+                    // Update all the rest of the characters in the line.  Note that if there's no
+                    // space glyph, the "space" we saw is really just the next non-space character.
+                    let i0 = last_space_index;
+                    if (space.is_space) {
+                        i0 += 1;
+                    }
+                    let dx = draws[i0].x;
+                    for (let i = i0; i < draws.length; i++) {
+                        draws[i].lineno += 1;
+                        draws[i].x -= dx;
+                    }
+
+                    // Update our current x position, discarding any kerning, and continue
+                    x -= dx;
+                    last_space_index = null;
+                }
             }
 
             line_stats.push({
@@ -872,15 +983,18 @@ class BossBrain {
                 y0: y,
             });
 
-            y += font.line_height;
-            if (l < lines.length - 1) {
-                y += line_spacing;
-            }
+            y += font.line_height + line_spacing;
+            lineno += 1;
+        }
+
+        // Undo this, since there's no spacing after the last line
+        if (lines.length > 0) {
+            y -= line_spacing;
         }
 
         // Resize the canvas to fit snugly
         let canvas_width = Math.max(...Object.values(line_stats).map(line_stat => line_stat.width));
-        let canvas_height = y;
+        let canvas_height = y - line_spacing;
         this.buffer_canvas.width = canvas_width;
         this.buffer_canvas.height = canvas_height;
         this.final_canvas.width = canvas_width * scale;
