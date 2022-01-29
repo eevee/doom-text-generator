@@ -16,14 +16,12 @@
 // little info popup about a font (source, copyright, character set...)
 //
 // TODO things people asked for:
-// - add query string, or maybe just insta-update fragment?
 // - line spacing
 // TODO nice to do while i'm here:
 // - modernize js
 //   - load the json, as json
 //   - i feel like i need a better way of handling the form elements, maybe i need a little lib of thin wrappers idk
-//     - need to populate them on load from the fragment
-//     - fragment should skip when value is default
+//     - fragment should skip when value is default?
 //     - kerning and line spacing should support both a slider and a spinner?  or is that too much
 // - update the html
 //   - too much text?  popups?  not sure
@@ -457,8 +455,8 @@ class BossBrain {
 
         await Promise.all(load_promises);
 
-
-        // TODO read fragment
+        // Load from the fragment
+        this.set_form_from_fragment(true);
 
         let list = document.querySelector('#js-font-list');
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
@@ -621,6 +619,11 @@ class BossBrain {
                 trigger_local_download(stem.substring(0, 100) + '.png', blob);
             });
         });
+
+        // Update if the fragment changes
+        window.addEventListener('popstate', ev => {
+            this.set_form_from_fragment();
+        });
     }
 
     _update_radioset(ul) {
@@ -634,6 +637,27 @@ class BossBrain {
     _update_all_radiosets() {
         for (let ul of document.querySelectorAll('ul.radioset')) {
             this._update_radioset(ul);
+        }
+    }
+
+    set_form_from_fragment(initial) {
+        let args = new URLSearchParams(location.hash.substring(1));
+        for (let [key, value] of args) {
+            let el = this.form.elements[key];
+            if (! el)
+                continue;
+
+            if (el.type === 'checkbox' && el.value === value) {
+                el.checked = true;
+            }
+            else {
+                el.value = value;
+            }
+        }
+
+        if (! initial) {
+            this._update_all_radiosets();
+            this.redraw_current_text();
         }
     }
 
