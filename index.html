@@ -242,6 +242,29 @@
             display: none;
         }
 
+        /* Confirmation that you actually copied */
+        .star {
+            position: absolute;
+            font-size: 2em;
+            margin-left: -0.5em;
+            margin-top: -0.75em;
+            pointer-events: none;
+
+            transform-origin: 50%;
+            animation: star 0.5s ease-out forwards;
+        }
+        @keyframes star {
+            0% {
+                transform: scale(0.5);
+            }
+            25% {
+                transform: scale(1);
+            }
+            100% {
+                transform: scale(0) rotate(1turn);
+            }
+        }
+
         @media (max-width: 1439px) {
             form {
                 padding: 1em 2vw;
@@ -284,6 +307,7 @@
             <textarea name="text"></textarea>
             <div class="-buttons">
                 <button id="button-randomize">🎲 Randomize</button>
+                <button id="button-copy">📋 Copy</button>
                 <button id="button-download">💾 Download</button>
             </div>
         </section>

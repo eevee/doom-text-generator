@@ -481,8 +481,6 @@ class BossBrain {
     }
 
     async init_form() {
-        this.set_form_from_fragment(true);
-
         // While this is checked, the form itself is gone, for the convenience of, for example,
         // people using this live in OBS.  Check this first, before waiting on images to load, to
         // minimize the intermediate flash.
@@ -506,11 +504,6 @@ class BossBrain {
         });
 
         let textarea = this.form.elements['text'];
-        // If the textarea is blank (which may not be the case if browser
-        // navigation restored previously-typed text!), populate it.
-        if (textarea.value === "") {
-            this.randomize();
-        }
         let redraw_handler = this.redraw_current_text.bind(this);
         textarea.addEventListener('input', redraw_handler);
 
@@ -626,19 +619,40 @@ class BossBrain {
             this.set_background(ev.target.getAttribute('data-hex'));
         });
 
-        // Fonts were already loaded by init() so we are good to go
-        this.redraw_current_text();
-
         let handle_radioset = ev => this._update_radioset(ev.target.closest('ul.radioset'));
         for (let ul of document.querySelectorAll('ul.radioset')) {
             ul.addEventListener('change', handle_radioset);
         }
 
-        this.fix_form();
+        // This also fixes the form and does the initial draw.
+        this.set_form_from_fragment();
+        // If the textarea is still blank (which may not be the case if browser navigation restored
+        // previously-typed text!), populate it and re-draw.
+        if (textarea.value === "") {
+            this.randomize();
+        }
 
         // Utility buttons
         document.querySelector('#button-randomize').addEventListener('click', () => {
             this.randomize();
+        });
+        document.querySelector('#button-copy').addEventListener('click', ev => {
+            if (! window.ClipboardItem) {
+                alert("hello sorry, in firefox this is still behind a preference, you will need to visit about:config and enable:\n\ndom.events.asyncClipboard.clipboardItem\n\nthen refresh and try again");
+                return;
+            }
+
+            this.final_canvas.toBlob(async blob => {
+                if (! blob)
+                    return;
+
+                await navigator.clipboard.write([ new ClipboardItem({'image/png': blob}) ]);
+                let star = mk('div.star', "⭐");
+                star.style.left = `${ev.clientX}px`;
+                star.style.top = `${ev.clientY}px`;
+                document.body.append(star);
+                setTimeout(() => star.remove(), 1000);
+            });
         });
         document.querySelector('#button-download').addEventListener('click', () => {
             this.final_canvas.toBlob(blob => {
@@ -676,7 +690,7 @@ class BossBrain {
         }
     }
 
-    set_form_from_fragment(initial) {
+    set_form_from_fragment() {
         let args = new URLSearchParams(location.hash.substring(1));
         for (let [key, value] of args) {
             let el = this.form.elements[key];
@@ -691,10 +705,8 @@ class BossBrain {
             }
         }
 
-        if (! initial) {
-            this._update_all_radiosets();
-            this.redraw_current_text();
-        }
+        this.fix_form();
+        this.redraw_current_text();
     }
 
     _fix_bg_controls() {
@@ -1018,7 +1030,6 @@ class BossBrain {
             let px = line_stat.x0 + (glyph.dx || 0) + draw.x;
             let py = line_stat.y0 + (glyph.dy || 0);
             if (draw.translation) {
-                console.log(draw.translation);
                 // Argh, we need to translate
                 let transdef = ZDOOM_TRANSLATIONS[draw.translation];
                 let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
