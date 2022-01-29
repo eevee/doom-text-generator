@@ -7,24 +7,84 @@ import shutil
 import png
 
 
+# Note that the fonts will appear on the page in this order, using exactly the
+# names in the `meta` dicts
 FONTDEFS = {
     'doom-small': dict(
         glob='_fonts/doom-small/STCFN*.png',
         format='composite',
+        meta=dict(
+            name="Doom — small font",
+            creator="id software",
+            license='commercial',
+            source="STCFN___ lumps from doom2.wad",
+        ),
     ),
-    'chex-small': dict(
-        glob='_fonts/chex/STCFN*.png',
+    # TODO i do have gzdoom-bigfont which is its own thing too
+    'doom-bigupper': dict(
+        glob='_fonts/gzdoom-doom-bigupper/*.png',
+        hex_numbering=True,
+        global_kerning=-1,
         format='composite',
+        meta=dict(
+            name="Doom — menu font",
+            creator="id software + GZDoom",
+            license='derivative',
+            source="GZDoom's BIGUPPER, reverse engineered and extended from Doom's menu and title graphics",
+            source_url='https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigupper',
+        ),
+    ),
+    'doom-bigfont': dict(
+        glob='_fonts/gzdoom-doom-bigfont/*.png',
+        hex_numbering=True,
+        global_kerning=-1,
+        height=16,
+        format='composite',
+        meta=dict(
+            name="Doom — menu font (small caps only)",
+            creator="id software + GZDoom",
+            license='derivative',
+            source="GZDoom's BIGFONT, reverse engineered and extended from Doom's menu and title graphics",
+            source_url='https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont',
+        ),
+    ),
+    'doom-nightmare': dict(
+        path='_fonts/custom-amuscaria-doom-nightmare.png',
+        format='packed',
+        global_kerning=-1,
+        layout='_fonts/custom-amuscaria-doom-nightmare.txt',
+        meta=dict(
+            name="Doom — nightmare font",
+            creator="id software + Amuscaria + Eevee",
+            creator_url='https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)',
+            license='derivative',
+            source="Amuscaria's spritesheet, cleaned up and extended by me, based on Doom's \"Nightmare!\" skill graphic",
+            source_url='https://forum.zdoom.org/viewtopic.php?f=4&t=27060',
+        ),
     ),
     'heretic-small': dict(
         glob='_fonts/heretic/FONTA*.png',
         ascii_offset=32,
         format='composite',
+        meta=dict(
+            name="Heretic/Hexen — small font",
+            desc="Used for in-game messages and menu prompts.",
+            creator="Raven Software",
+            license='commercial',
+            source="FONTA__ lumps from heretic.wad",
+        ),
     ),
     'heretic-menu': dict(
         glob='_fonts/heretic/FONTB*.png',
         ascii_offset=32,
         format='composite',
+        meta=dict(
+            name="Heretic — menu font",
+            desc="Used for main menu options.",
+            creator="Raven Software",
+            license='commercial',
+            source="FONTB__ lumps from heretic.wad",
+        ),
     ),
     # hexen and heretic use the same small font, so hexen's isn't included here
     # TODO hexen yellow?  what's that for.  also it's FONTAY which overlays with FONTA, dammit
@@ -32,44 +92,75 @@ FONTDEFS = {
         glob='_fonts/hexen/FONTB*.png',
         ascii_offset=32,
         format='composite',
+        meta=dict(
+            name="Hexen — menu font",
+            desc="Used for main menu options.",
+            creator="Raven Software",
+            license='commercial',
+            source="FONTB__ lumps from hexen.wad",
+        ),
+    ),
+    'chex-small': dict(
+        glob='_fonts/chex/STCFN*.png',
+        format='composite',
+        meta=dict(
+            name="Chex Quest — small font",
+            desc="Used for in-game messages and menu prompts.",
+            creator="unknown",  # XXX?
+            license='unknown',
+            source="STCFN___ lumps from chex3.wad",
+        ),
     ),
     'strife-small': dict(
         glob='_fonts/strife/STBFN*.png',
         format='composite',
+            meta=dict(
+            name="Strife — small font",
+            desc="Used for in-game messages and menu prompts.",
+            creator="unknown",  # XXX?
+            license='commercial',
+            source="STBFN___ lumps from strife.wad",
+        ),
     ),
     'strife-small2': dict(
         glob='_fonts/strife/STCFN*.png',
         format='composite',
+        meta=dict(
+            name="Strife — alternate small font",
+            # TODO well that can't be true
+            desc="Used for in-game messages and menu prompts.",
+            creator="unknown",  # XXX?
+            license='unknown',
+            source="STCFN___ lumps from strife.wad",
+        ),
     ),
-    'strife-menu-gzdoom': dict(
+    'strife-bigfont': dict(
         glob='_fonts/gzdoom-strife-bigfont/*.png',
         format='composite',
         hex_numbering=True,
         global_kerning=-1,
+        meta=dict(
+            name="Strife — menu font",
+            desc="Used for main menu options.",
+            creator="unknown",  # XXX?
+            license='derivative',
+            # TODO get the fuckin, gzdoom link
+            source="Derived from Strife",
+        ),
     ),
+    # TODO hacx small + menu fonts?
+    # TODO freedoom small + menu fonts?
     'zdoom-console': dict(
         glob='_fonts/confont.lmp',
         format='fon1',
-    ),
-    # TODO i do have gzdoom-bigfont which is its own thing too
-    'gzdoom-doom-bigupper': dict(
-        glob='_fonts/gzdoom-doom-bigupper/*.png',
-        hex_numbering=True,
-        global_kerning=-1,
-        format='composite',
-    ),
-    'gzdoom-doom-bigfont': dict(
-        glob='_fonts/gzdoom-doom-bigfont/*.png',
-        hex_numbering=True,
-        global_kerning=-1,
-        height=16,
-        format='composite',
-    ),
-    'custom-amuscaria-doom-nightmare': dict(
-        path='custom-amuscaria-doom-nightmare.png',
-        format='packed',
-        global_kerning=-1,
-        layout='_fonts/custom-amuscaria-doom-nightmare.txt',
+        meta=dict(
+            name="ZDoom — console font",
+            # TODO is this used in gzdoom any more?
+            creator="unknown",  # XXX?
+            license='unknown',
+            # TODO get the fuckin, gzdoom link
+            source="confont.lmp from ZDoom",
+        ),
     ),
 }
 
@@ -117,6 +208,18 @@ def determine_space_width_zdoom(glyphs):
         return 4
 
 
+def encode_metrics(x, y, width, height, dx, dy):
+    s = f'{width}x{height}+{x}+{y}'
+    if dx or dy:
+        s += f'@{dx},{dy}'
+    return s
+
+
+def decode_metrics(s):
+    m = re.fullmatch(r'(\d+)x(\d+)[+](\d+)[+](\d+)(?:@(-?\d+),(-?\d+))?', s)
+    return int(m[3]), int(m[4]), int(m[1]), int(m[2]), int(m[5] or 0), int(m[6] or 0)
+
+
 def main():
     root = Path('.')
     fonts = {}
@@ -152,6 +255,7 @@ def main():
                 space_width=cell_width,
                 line_height=cell_height,
                 lightness_range=[0, 255],
+                meta=fontdef['meta'],
             )
 
             continue
@@ -214,6 +318,7 @@ def main():
                 image=fontfile,
                 line_height=cell_height,
                 lightness_range=[min(lightnesses), max(lightnesses)],
+                meta=fontdef['meta'],
             )
 
             continue
@@ -223,26 +328,29 @@ def main():
             line_height = 0
             with open(fontdef['layout']) as f:
                 for line in f:
-                    m = re.fullmatch(r'(.)\s+(\d+)x(\d+)[+](\d+)[+](\d+)(?:@(\d+),(\d+))?\s*', line)
-                    ch = m.group(1)
-                    glyphs[ch] = glyph = dict(
-                        width=int(m.group(2)),
-                        height=int(m.group(3)),
-                        x=int(m.group(4)),
-                        y=int(m.group(5)),
+                    ch = line[0]
+                    x, y, width, height, dx, dy = decode_metrics(line[1:].strip())
+                    glyphs[ch] = dict(
+                        x=x,
+                        y=y,
+                        width=width,
+                        height=height,
+                        dx=dx,
+                        dy=dy,
                     )
-                    if m.group(6):
-                        glyph['dx'] = int(m.group(6))
-                        glyph['dy'] = int(m.group(7))
-                    line_height = max(line_height, glyph['height'] + glyph.get('dy', 0))
+                    line_height = max(line_height, height + dy)
+
+            fontfile = f'{fontname}.png'
+            shutil.copyfile(fontdef['path'], fontfile)
 
             fonts[fontname] = dict(
                 glyphs=glyphs,
-                image=fontdef['path'],
+                image=fontfile,
                 space_width=determine_space_width_zdoom(glyphs),
                 line_height=line_height,
                 kerning=fontdef.get('global_kerning', 0),
                 lightness_range=extract_lightness_range(fontdef['path']),
+                meta=fontdef['meta'],
             )
             continue
 
@@ -312,7 +420,6 @@ def main():
 
             x += cell_width
 
-
         fonts[fontname] = dict(
             glyphs=glyphs,
             image=fontfile,
@@ -321,10 +428,20 @@ def main():
             line_height=fontdef.get('height', cell_height),
             kerning=fontdef.get('global_kerning', 0),
             lightness_range=extract_lightness_range(fontfile),
+            meta=fontdef['meta'],
         )
 
+    # Convert glyph data to a more compact form
+    for fontdef in fonts.values():
+        glyphs = fontdef['glyphs']
+        for ch, metrics in glyphs.items():
+            glyphs[ch] = encode_metrics(
+                metrics['x'], metrics['y'],
+                metrics['width'], metrics['height'],
+                metrics.get('dx', 0), metrics.get('dy', 0))
+
     import json
-    print('XXX_DOOM_FONTS =', json.dumps(fonts))
+    print('export default', json.dumps(fonts, indent='  '))
 
 
 if __name__ == '__main__':

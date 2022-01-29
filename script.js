@@ -13,7 +13,7 @@
 // force into doom (heretic, hexen, ...) palette?
 // automatic wrapping, even?
 // allow dragging in a wad, and identify any fonts within it
-// preview the fonts in a list
+// little info popup about a font (source, copyright, character set...)
 //
 // TODO things people asked for:
 // - [OK] add nightmare font
@@ -37,6 +37,22 @@
 // - preview image edges?
 //   - show width/height?
 // - button to download it, if that were not clear
+import DOOM_FONTS from './data.js';
+// Decode the glyph data real quick, shh we're technically mutating a global
+for (let fontdef of Object.values(DOOM_FONTS)) {
+    for (let [ch, metrics] of Object.entries(fontdef.glyphs)) {
+        let [_, width, height, x, y, dx, dy] = metrics.match(/^(\d+)x(\d+)[+](\d+)[+](\d+)(?:@(-?\d+),(-?\d+))?$/);
+        fontdef.glyphs[ch] = {
+            x: parseInt(x, 10),
+            y: parseInt(y, 10),
+            width: parseInt(width, 10),
+            height: parseInt(height, 10),
+            dx: parseInt(dx ?? '0', 10),
+            dy: parseInt(dy ?? '0', 10),
+        };
+    }
+}
+
 function mk(tag_selector, ...children) {
     let [tag, ...classes] = tag_selector.split('.');
     let el = document.createElement(tag);
@@ -66,108 +82,6 @@ function rgb(rrggbb) {
 }
 
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
-
-const FONTS = {
-    'doom-small': {
-        name: "Doom — small font",
-        desc: "Used for in-game messages and menu prompts.",
-        creator: "id software",
-        source: "STCFN___ lumps from doom2.wad",
-        free: false,
-    },
-    // TODO rename these
-    'gzdoom-doom-bigupper': {
-        name: "Doom — menu font",
-        desc: "Used for main menu options and level titles.",
-        creator: "id software",
-        source: "GZDoom's BIGFONT, reverse engineered from Doom's graphics which didn't include individual characters",
-        source_url: 'https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont',
-        free: 'dubious',
-    },
-    'gzdoom-doom-bigfont': {
-        name: "Doom — menu font (small caps only)",
-        desc: "Used for main menu options and level titles.",
-        creator: "id software",
-        source: "GZDoom's BIGFONT, reverse engineered from Doom's graphics which didn't include individual characters",
-        source_url: 'https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont',
-        free: 'dubious',
-    },
-    // <!-- TODO credit this somehow -   -->
-    'custom-amuscaria-doom-nightmare': {
-        name: "Doom — nightmare font",
-        desc: "Used for the \"Nightmare!\" difficulty level.",
-        creator: "id software + Amuscaria",
-        creator_url: 'https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)',
-        // TODO reverse engineered etc
-        source_url: 'https://forum.zdoom.org/viewtopic.php?f=4&t=27060',
-        free: 'dubious',
-    },
-    'heretic-small': {
-        name: "Heretic/Hexen — small font",
-        desc: "Used for in-game messages and menu prompts.",
-        creator: "Raven Software",
-        source: "FONTA__ lumps from heretic.wad",
-        free: false,
-    },
-    'heretic-menu': {
-        name: "Heretic — menu font",
-        desc: "Used for main menu options.",
-        creator: "Raven Software",
-        source: "FONTB__ lumps from heretic.wad",
-        free: false,
-    },
-    'hexen-menu': {
-        name: "Hexen — menu font",
-        desc: "Used for main menu options.",
-        creator: "Raven Software",
-        source: "FONTB__ lumps from hexen.wad",
-        free: false,
-    },
-    'chex-small': {
-        name: "Chex Quest — small font",
-        desc: "Used for in-game messages and menu prompts.",
-        creator: "unknown",  // XXX?
-        source: "STCFN___ lumps from chex3.wad",
-        free: 'dubious',
-    },
-    'strife-small': {
-        name: "Strife — small font",
-        desc: "Used for in-game messages and menu prompts.",
-        creator: "unknown",  // XXX?
-        source: "STBFN___ lumps from strife.wad",
-        free: false,
-    },
-    'strife-small2': {
-        name: "Strife — alternate small font",
-        // TODO well that can't be true
-        desc: "Used for in-game messages and menu prompts.",
-        creator: "unknown",  // XXX?
-        source: "STCFN___ lumps from strife.wad",
-        free: false,
-    },
-    // TODO rename to bigfont probably
-    'strife-menu-gzdoom': {
-        name: "Strife — menu font",
-        // TODO well that can't be true
-        desc: "Used for main menu options.",
-        creator: "unknown",  // XXX?
-        // TODO get the fuckin, gzdoom link
-        source: "STCFN___ lumps from strife.wad",
-        free: 'mixed',
-    },
-    // TODO hacx small + menu fonts
-    // TODO freedoom small + menu fonts
-    'zdoom-console': {
-        name: "ZDoom — console font",
-        // TODO is this used in gzdoom any more?
-        // TODO all wrong actually
-        desc: "Used for main menu options.",
-        creator: "unknown",  // XXX?
-        // TODO get the fuckin, gzdoom link
-        source: "STCFN___ lumps from strife.wad",
-        free: 'mixed',
-    },
-};
 
 // TODO does vanilla do anything like this??  is this converted to the palette?
 const ZDOOM_TRANSLATIONS = {
@@ -515,7 +429,7 @@ function redraw(args) {
 
     let lines = text.split('\n');
 
-    let font = XXX_DOOM_FONTS[default_font];
+    let font = DOOM_FONTS[default_font];
     // XXX handle error?
 
     // Compute some layout metrics first
@@ -719,7 +633,7 @@ async function init() {
     canvas = document.querySelector('canvas');
 
     let load_promises = [];
-    for (let [fontname, fontdef] of Object.entries(XXX_DOOM_FONTS)) {
+    for (let [fontname, fontdef] of Object.entries(DOOM_FONTS)) {
         let img = new Image;
         img.src = fontdef.image;
         font_images[fontname] = img;
@@ -735,32 +649,22 @@ async function init() {
 
 
     let list = document.querySelector('#js-font-list');
-    for (let [name, fontdef] of Object.entries(FONTS)) {
+    for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
         // TODO pop open a lil info overlay for each of these
         redraw({
             text: "Hello, world!",
-            default_font: name,
+            default_font: ident,
             scale: 2,
         });
         let name_canvas = mk('canvas', {width: canvas.width, height: canvas.height});
         name_canvas.getContext('2d').drawImage(canvas, 0, 0);
 
-        let glyphs = XXX_DOOM_FONTS[name].glyphs;
-        /*
-        let charset = Object.keys(glyphs).sort().join('');
-        let missing = [];
-        for (let n = 33; n < 127; n++) {
-            let ch = String.fromCharCode(n);
-            if (! glyphs[ch]) {
-                missing.push(ch);
-            }
-        }
-        */
+        let glyphs = DOOM_FONTS[ident].glyphs;
         let li = mk('li',
             mk('label',
-                mk('input', {type: 'radio', name: 'font', value: name}),
+                mk('input', {type: 'radio', name: 'font', value: ident}),
                 " ",
-                fontdef.name,
+                fontdef.meta.name,
                 mk('br'),
                 name_canvas,
             ),
