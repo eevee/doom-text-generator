@@ -402,7 +402,18 @@ def main():
         # Now montage them together
         # TODO could probably do better than this but good enough whatever
         columns = int(len(png_paths) ** 0.5)
-        subprocess.run(['montage', '-background', 'transparent', '-tile', f"{columns}x", '-gravity', 'NorthWest', '-geometry', f"{cell_width}x{cell_height}>+0+0", *png_paths, fontfile])
+        subprocess.run([
+            'montage',
+            '-background', 'transparent',
+            '-tile', f"{columns}x",
+            '-gravity', 'NorthWest',
+            '-geometry', f"{cell_width}x{cell_height}>+0+0",
+            # I have no idea why I need this all of a sudden but ImageMagick started saving the Doom
+            # big fonts as 16-bit grayscale
+            '-depth', '8',
+            *png_paths,
+            fontfile,
+        ])
 
         # Optipng, and also strip the color profile since it fucks everything up real good
         subprocess.run(['optipng', '-strip', 'all', fontfile], stderr=subprocess.DEVNULL)

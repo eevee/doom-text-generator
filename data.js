@@ -470,7 +470,7 @@ export default {
     "kerning": -1,
     "lightness_range": [
       0.0,
-      65534.99999999999
+      255.0
     ],
     "meta": {
       "name": "Doom \u2014 menu font",
@@ -702,7 +702,7 @@ export default {
     "kerning": -1,
     "lightness_range": [
       0.0,
-      65534.99999999999
+      255.0
     ],
     "meta": {
       "name": "Doom \u2014 menu font (small caps only)",
