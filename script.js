@@ -466,7 +466,6 @@ class BossBrain {
         this.form.addEventListener('submit', ev => {
             ev.preventDefault();
         });
-        let canvas_wrapper = document.getElementById('canvas-wrapper');
 
         let textarea = this.form.elements['text'];
         // If the textarea is blank (which may not be the case if browser
@@ -519,37 +518,16 @@ class BossBrain {
         // Page properties
         let bg_ctl = this.form.elements['bg'];
         let bgcolor_ctl = this.form.elements['bgcolor'];
-        function set_background(bgcolor) {
-            if (bgcolor === null) {
-                bg_ctl.checked = false;
-                bgcolor_ctl.disabled = true;
-            }
-            else {
-                bg_ctl.checked = true;
-                bgcolor_ctl.disabled = false;
-                bgcolor_ctl.value = bgcolor;
-            }
-            update_background();
-            this.redraw_current_text();
-        }
-        function update_background() {
-            if (bg_ctl.checked) {
-                canvas_wrapper.style.backgroundColor = bgcolor_ctl.value;
-            }
-            else {
-                canvas_wrapper.style.backgroundColor = 'transparent';
-            }
-        }
         bg_ctl.addEventListener('click', ev => {
             bgcolor_ctl.disabled = ! bg_ctl.checked;
-            update_background();
+            this.update_background();
             this.redraw_current_text();
         });
         bgcolor_ctl.addEventListener('input', ev => {
-            set_background(bgcolor_ctl.value);
+            this.set_background(bgcolor_ctl.value);
         });
         bgcolor_ctl.disabled = ! bg_ctl.checked;
-        update_background();
+        this.update_background();
 
         // Translations
         function translation_to_gradient(spans) {
@@ -584,7 +562,7 @@ class BossBrain {
             if (ev.target.tagName !== 'BUTTON')
                 return;
 
-            set_background(ev.target.getAttribute('data-hex'));
+            this.set_background(ev.target.getAttribute('data-hex'));
         });
 
         // Fonts were already loaded by init() so we are good to go
@@ -606,6 +584,30 @@ class BossBrain {
                     radio.closest('ul.radioset > li').classList.add('selected');
                 }
             }
+        }
+    }
+
+    set_background(bgcolor) {
+        if (bgcolor === null) {
+            this.form.elements['bg'].checked = false;
+            this.form.elements['bgcolor'].disabled = true;
+        }
+        else {
+            this.form.elements['bg'].checked = true;
+            this.form.elements['bgcolor'].disabled = false;
+            this.form.elements['bgcolor'].value = bgcolor;
+        }
+        this.update_background();
+        this.redraw_current_text();
+    }
+
+    update_background() {
+        let canvas_wrapper = document.getElementById('canvas-wrapper');
+        if (this.form.elements['bg'].checked) {
+            canvas_wrapper.style.backgroundColor = this.form.elements['bgcolor'].value;
+        }
+        else {
+            canvas_wrapper.style.backgroundColor = 'transparent';
         }
     }
 
