@@ -489,7 +489,6 @@ class BossBrain {
             // Need to do this directly since usually we rely on it happening due to a redraw
             this.update_fragment();
         });
-        document.body.classList.toggle('solo', this.form.elements['solo'].checked);
         // But you can turn it off by clicking anywhere
         document.querySelector('#canvas-wrapper').addEventListener('click', () => {
             this.form.elements['solo'].checked = false;
@@ -733,6 +732,8 @@ class BossBrain {
         kerning_ctl.parentNode.querySelector('output').textContent = String(kerning_ctl.value);
         let line_spacing_ctl = this.form.elements['line-spacing'];
         line_spacing_ctl.parentNode.querySelector('output').textContent = String(line_spacing_ctl.value);
+
+        document.body.classList.toggle('solo', this.form.elements['solo'].checked);
     }
 
     update_fragment() {
