@@ -396,8 +396,8 @@ def main():
             if dy:
                 glyphs[ch]['dy'] = -dy
 
-            cell_width = max(width - dx, cell_width)
-            cell_height = max(height - dy, cell_height)
+            cell_width = max(width, cell_width)
+            cell_height = max(height, cell_height)
 
         # Now montage them together
         # TODO could probably do better than this but good enough whatever

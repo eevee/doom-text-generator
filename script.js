@@ -12,6 +12,10 @@
 // force into doom (heretic, hexen, ...) palette?
 // allow dragging in a wad, and identify any fonts within it
 // little info popup about a font (source, copyright, character set...)
+// make translation more fast
+// - preconvert default translation?
+// allow using different fonts in one message (whoof)
+// fix accents and other uses of too-high letters
 //
 // TODO nice to do while i'm here:
 // - modernize js
