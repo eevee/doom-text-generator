@@ -1,356 +1,356 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf8">
-    <meta name="viewport" content="initial-scale=1">
-    <title>Doom Text Generator</title>
-    <script src="script.js" type="module"></script>
-    <style>
-        ul {
-            margin: 0;
-            padding: 0;
-            list-style: none;
-        }
-        input, select, button {
-            vertical-align: baseline;
-            font-size: inherit;
-        }
-        input[type=color] {
-            vertical-align: middle;
-        }
-        input[type=radio],
-        input[type=checkbox] {
-            margin: 0 3px;
-        }
-        button {
-            padding: 0.25em;
-        }
+<meta charset="utf8">
+<meta name="viewport" content="initial-scale=1">
+<title>Doom Text Generator</title>
+<script src="script.js" type="module"></script>
+<style>
+    ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    input, select, button {
+        vertical-align: baseline;
+        font-size: inherit;
+    }
+    input[type=color] {
+        vertical-align: middle;
+    }
+    input[type=radio],
+    input[type=checkbox] {
+        margin: 0 3px;
+    }
+    button {
+        padding: 0.25em;
+    }
 
-        html {
-            height: 100%;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
+    html {
+        height: 100%;
+    }
+    body {
+        display: flex;
+        flex-direction: column;
 
-            font-size: 20px;
-            height: 100%;
-            margin: 0;
-            line-height: 1.33;
-            font-family: sans-serif;
-            background: #f4f4f4;
-            color: #222;
+        font-size: 20px;
+        height: 100%;
+        margin: 0;
+        line-height: 1.33;
+        font-family: sans-serif;
+        background: #f4f4f4;
+        color: #222;
+    }
+    #canvas-wrapper {
+        flex: 1 0 auto;
+        height: 25vh;
+        /* center the canvas */
+        display: flex;
+        align-items: center;
+        overflow: auto;
+        padding: 1em;
+    }
+    canvas {
+        flex: 0 0 auto;
+        /* do this instead of justify-content because that hides the left end on overflow */
+        margin: 0 auto;
+        image-rendering: crisp-edges;
+    }
+    form {
+        flex: 1 1 auto;
+        border-top: 1px solid #444;
+        padding: 1em 5vw;
+        overflow: auto;
+        display: grid;
+        grid-template:
+            "text       text        text"
+            "font       options     color"
+            "footer     footer      footer"
+            / 1fr 1fr 1fr
+        ;
+        column-gap: 2em;
+    }
+    form > footer {
+        grid-area: footer;
+        font-size: 0.75em;
+        padding: 1em;
+        border-top: 1px solid #ccc;
+        color: #444;
+    }
+    section {
+    }
+    section > h2 {
+        font-size: 1.25em;
+        margin: 1em 0 0.5em;
+        border-bottom: 1px solid #ccc;
+        font-weight: normal;
+        color: #222;
+    }
+    #section-text {
+        grid-area: text;
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        justify-content: stretch;
+        gap: 0.5em;
+        margin: 0 auto;
+    }
+    #section-text .-buttons {
+        display: flex;
+        flex-direction: column;
+        justify-content: stretch;
+        gap: 0.25em;
+        min-width: 10em;
+    }
+    #section-text .-buttons button {
+        flex: 1;
+    }
+    textarea {
+        font-size: inherit;
+        box-sizing: border-box;
+        width: 60vw;
+        height: 6em;
+    }
+    #section-font {
+        grid-area: font;
+    }
+    #section-options {
+        grid-area: options;
+    }
+    #section-color {
+        grid-area: color;
+    }
+    #wad-uploader {
+        margin: 0.5em 0;
+    }
+    #wad-uploader output {
+        display: block;
+        margin: 0.5em 0;
+    }
+    #wad-uploader output.--success {
+        color: hsl(150, 100%, 30%);
+    }
+    #wad-uploader output.--failure {
+        color: hsl(345, 100%, 40%);
+    }
+    #button-upload {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    input[type=file] {
+        display: none;
+    }
+
+    p {
+        font-size: 0.8em;
+        color: #666;
+        font-style: italic;
+    }
+    ul.radioset > li {
+        position: relative;
+        margin: 0.25em 0;
+        padding: 0.125em 0.5em;
+        outline-offset: -1px;
+        border-radius: 3px;
+    }
+    ul.radioset > li:hover {
+        background-color: hsl(225, 10%, 92%);
+        box-shadow: 0 0 0 1px hsl(225, 20%, 85%);
+    }
+    ul.radioset > li.selected {
+        background-color: hsl(225, 40%, 92%);
+        box-shadow: 0 0 0 2px hsl(225, 50%, 50%);
+    }
+    ul.radioset > li > label {
+        display: block;
+        padding-left: 1.5em;
+    }
+    ul.radioset > li > label > input:first-child {
+        position: absolute;
+        width: 1em;
+        height: 1.33em;  /* one line-height */
+        left: 0.125em;
+    }
+    ul.radioset > li > p {
+        margin: 0.25em 2em;
+    }
+    .range-with-label {
+        display: flex;
+    }
+    .range-with-label input {
+        flex: 1 auto;
+    }
+    .range-with-label output {
+        flex: 0 0 2em;
+        margin: 0 0.5em;
+        text-align: right;
+    }
+
+    dl.twocol {
+        display: grid;
+        grid: auto-flow / max-content 1fr;
+        gap: 0.5em;
+    }
+    dl.twocol > dd {
+        margin: 0;
+    }
+
+    #section-scale input[type=range] {
+        grid-area: scale;
+    }
+
+    ul.translations > li > label {
+        display: flex;
+        align-items: center;
+    }
+    .translation-example {
+        flex: 0 0 auto;
+        display: inline-block;
+        height: 1em;
+        width: 4em;
+        max-width: 15vw;
+        border: 1px solid #404040;
+        vertical-align: middle;
+        background-image: linear-gradient(to right, #470000 0%, #FFB8B8 100%);
+    }
+    /* switch between normal and console gradients depending on font */
+    form.using-console-font .translation-example.-normal {
+        display: none;
+    }
+    .translation-example.-console {
+        display: none;
+    }
+    form.using-console-font .translation-example.-console {
+        display: initial;
+    }
+    .translations .name {
+        flex: 1 0 auto;
+        margin: 0 0.5em;
+    }
+    .translations .acs-escape {
+        flex: 0 0 auto;
+        margin: 0 0.5em;
+        width: 2.5em;
+        font-family: monospace;
+    }
+    .translations button {
+        flex: 0 0 auto;
+        font-size: inherit;
+        width: 1em;
+        height: 1em;
+        padding: 0;
+        border: 1px solid #222;
+        border-radius: 0.25em;
+        box-shadow:
+            inset 0 -0.25em 0.25em #0002,
+            inset 0 0.0625em 0.0625em #fff6,
+            0 1px 2px #0009;
+    }
+
+    .alignment {
+        display: flex;
+        gap: 1em;
+    }
+    .alignment input {
+        width: 1em;
+        height: 1em;
+    }
+    .alignment > li {
+        flex: 1 0 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    ul.radioset.alignment > li > label {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    ul.radioset.alignment > li > label > input:first-child {
+        position: static;
+    }
+    .alignment-left {
+        text-align: left;
+    }
+    .alignment-center {
+        text-align: center;
+    }
+    .alignment-right {
+        text-align: right;
+    }
+
+    #js-font-list canvas {
+        max-width: 100%;
+        vertical-align: middle;
+    }
+
+    /* Solo mode */
+    body.solo form {
+        background: transparent;
+        display: none;
+    }
+
+    /* Confirmation that you actually copied */
+    .star {
+        position: absolute;
+        font-size: 2em;
+        margin-left: -0.5em;
+        margin-top: -0.75em;
+        pointer-events: none;
+
+        transform-origin: 50%;
+        animation: star 0.5s ease-out forwards;
+    }
+    @keyframes star {
+        0% {
+            transform: scale(0.5);
         }
-        #canvas-wrapper {
-            flex: 1 0 auto;
-            height: 25vh;
-            /* center the canvas */
-            display: flex;
-            align-items: center;
-            overflow: auto;
-            padding: 1em;
+        25% {
+            transform: scale(1);
         }
-        canvas {
-            flex: 0 0 auto;
-            /* do this instead of justify-content because that hides the left end on overflow */
-            margin: 0 auto;
-            image-rendering: crisp-edges;
+        100% {
+            transform: scale(0) rotate(1turn);
         }
+    }
+
+    @media (max-width: 1439px) {
         form {
-            flex: 1 1 auto;
-            border-top: 1px solid #444;
-            padding: 1em 5vw;
-            overflow: auto;
-            display: grid;
+            padding: 1em 2vw;
+        }
+    }
+    @media (max-width: 1279px) {
+        form {
             grid-template:
-                "text       text        text"
-                "font       options     color"
-                "footer     footer      footer"
-                / 1fr 1fr 1fr
+                "text   text"
+                "font   options"
+                "font   color"
+                "footer footer"
+                / 1fr 1fr
             ;
-            column-gap: 2em;
         }
-        form > footer {
-            grid-area: footer;
-            font-size: 0.75em;
-            padding: 1em;
-            border-top: 1px solid #ccc;
-            color: #444;
-        }
-        section {
-        }
-        section > h2 {
-            font-size: 1.25em;
-            margin: 1em 0 0.5em;
-            border-bottom: 1px solid #ccc;
-            font-weight: normal;
-            color: #222;
-        }
-        #section-text {
-            grid-area: text;
-            display: flex;
-            flex-direction: row;
-            align-items: stretch;
-            justify-content: stretch;
-            gap: 0.5em;
-            margin: 0 auto;
-        }
-        #section-text .-buttons {
-            display: flex;
-            flex-direction: column;
-            justify-content: stretch;
-            gap: 0.25em;
-            min-width: 10em;
-        }
-        #section-text .-buttons button {
-            flex: 1;
+    }
+    @media (max-width: 800px) {
+        form {
+            grid-template:
+                "text"
+                "font"
+                "options"
+                "color"
+                "footer"
+                / 1fr
+            ;
         }
         textarea {
-            font-size: inherit;
-            box-sizing: border-box;
-            width: 60vw;
-            height: 6em;
+            width: 70vw;
         }
-        #section-font {
-            grid-area: font;
+        #section-text {
+            flex-direction: column;
         }
-        #section-options {
-            grid-area: options;
-        }
-        #section-color {
-            grid-area: color;
-        }
-        #wad-uploader {
-            margin: 0.5em 0;
-        }
-        #wad-uploader output {
-            display: block;
-            margin: 0.5em 0;
-        }
-        #wad-uploader output.--success {
-            color: hsl(150, 100%, 30%);
-        }
-        #wad-uploader output.--failure {
-            color: hsl(345, 100%, 40%);
-        }
-        #button-upload {
-            width: 100%;
-            box-sizing: border-box;
-        }
-        input[type=file] {
-            display: none;
-        }
-
-        p {
-            font-size: 0.8em;
-            color: #666;
-            font-style: italic;
-        }
-        ul.radioset > li {
-            position: relative;
-            margin: 0.25em 0;
-            padding: 0.125em 0.5em;
-            outline-offset: -1px;
-            border-radius: 3px;
-        }
-        ul.radioset > li:hover {
-            background-color: hsl(225, 10%, 92%);
-            box-shadow: 0 0 0 1px hsl(225, 20%, 85%);
-        }
-        ul.radioset > li.selected {
-            background-color: hsl(225, 40%, 92%);
-            box-shadow: 0 0 0 2px hsl(225, 50%, 50%);
-        }
-        ul.radioset > li > label {
-            display: block;
-            padding-left: 1.5em;
-        }
-        ul.radioset > li > label > input:first-child {
-            position: absolute;
-            width: 1em;
-            height: 1.33em;  /* one line-height */
-            left: 0.125em;
-        }
-        ul.radioset > li > p {
-            margin: 0.25em 2em;
-        }
-        .range-with-label {
-            display: flex;
-        }
-        .range-with-label input {
-            flex: 1 auto;
-        }
-        .range-with-label output {
-            flex: 0 0 2em;
-            margin: 0 0.5em;
-            text-align: right;
-        }
-
-        dl.twocol {
-            display: grid;
-            grid: auto-flow / max-content 1fr;
-            gap: 0.5em;
-        }
-        dl.twocol > dd {
-            margin: 0;
-        }
-
-        #section-scale input[type=range] {
-            grid-area: scale;
-        }
-
-        ul.translations > li > label {
-            display: flex;
-            align-items: center;
-        }
-        .translation-example {
-            flex: 0 0 auto;
-            display: inline-block;
-            height: 1em;
-            width: 4em;
-            max-width: 15vw;
-            border: 1px solid #404040;
-            vertical-align: middle;
-            background-image: linear-gradient(to right, #470000 0%, #FFB8B8 100%);
-        }
-        /* switch between normal and console gradients depending on font */
-        form.using-console-font .translation-example.-normal {
-            display: none;
-        }
-        .translation-example.-console {
-            display: none;
-        }
-        form.using-console-font .translation-example.-console {
-            display: initial;
-        }
-        .translations .name {
-            flex: 1 0 auto;
-            margin: 0 0.5em;
-        }
-        .translations .acs-escape {
-            flex: 0 0 auto;
-            margin: 0 0.5em;
-            width: 2.5em;
-            font-family: monospace;
-        }
-        .translations button {
-            flex: 0 0 auto;
-            font-size: inherit;
-            width: 1em;
-            height: 1em;
-            padding: 0;
-            border: 1px solid #222;
-            border-radius: 0.25em;
-            box-shadow:
-                inset 0 -0.25em 0.25em #0002,
-                inset 0 0.0625em 0.0625em #fff6,
-                0 1px 2px #0009;
-        }
-
-        .alignment {
-            display: flex;
+        #section-text .-buttons {
+            flex-direction: row;
             gap: 1em;
+            width: 80%;
         }
-        .alignment input {
-            width: 1em;
-            height: 1em;
-        }
-        .alignment > li {
-            flex: 1 0 0;
-            padding-left: 0;
-            padding-right: 0;
-        }
-        ul.radioset.alignment > li > label {
-            padding-left: 0;
-            padding-right: 0;
-        }
-        ul.radioset.alignment > li > label > input:first-child {
-            position: static;
-        }
-        .alignment-left {
-            text-align: left;
-        }
-        .alignment-center {
-            text-align: center;
-        }
-        .alignment-right {
-            text-align: right;
-        }
-
-        #js-font-list canvas {
-            max-width: 100%;
-            vertical-align: middle;
-        }
-
-        /* Solo mode */
-        body.solo form {
-            background: transparent;
-            display: none;
-        }
-
-        /* Confirmation that you actually copied */
-        .star {
-            position: absolute;
-            font-size: 2em;
-            margin-left: -0.5em;
-            margin-top: -0.75em;
-            pointer-events: none;
-
-            transform-origin: 50%;
-            animation: star 0.5s ease-out forwards;
-        }
-        @keyframes star {
-            0% {
-                transform: scale(0.5);
-            }
-            25% {
-                transform: scale(1);
-            }
-            100% {
-                transform: scale(0) rotate(1turn);
-            }
-        }
-
-        @media (max-width: 1439px) {
-            form {
-                padding: 1em 2vw;
-            }
-        }
-        @media (max-width: 1279px) {
-            form {
-                grid-template:
-                    "text   text"
-                    "font   options"
-                    "font   color"
-                    "footer footer"
-                    / 1fr 1fr
-                ;
-            }
-        }
-        @media (max-width: 800px) {
-            form {
-                grid-template:
-                    "text"
-                    "font"
-                    "options"
-                    "color"
-                    "footer"
-                    / 1fr
-                ;
-            }
-            textarea {
-                width: 70vw;
-            }
-            #section-text {
-                flex-direction: column;
-            }
-            #section-text .-buttons {
-                flex-direction: row;
-                gap: 1em;
-                width: 80%;
-            }
-        }
-    </style>
+    }
+</style>
 </head>
 <body>
     <div id="canvas-wrapper">
