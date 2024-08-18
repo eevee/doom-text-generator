@@ -619,7 +619,7 @@ class BossBrain {
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
             // TODO pop open a lil info overlay for each of these
             let name_canvas = this.render_text({
-                text: "Hello, world!",
+                text: fontdef.meta.name.replace(/—/, "-").replace(/ font\b/, ""),
                 default_font: ident,
                 scale: 2,
                 canvas: null,
@@ -628,8 +628,6 @@ class BossBrain {
                 mk('label',
                     mk('input', {type: 'radio', name: 'font', value: ident}),
                     " ",
-                    fontdef.meta.name,
-                    mk('br'),
                     name_canvas,
                 ),
             );
