@@ -10,7 +10,8 @@
 // metrics twiddles -- customize spacing, space width.  PADDING.
 // custom translations!
 // force into doom (heretic, hexen, ...) palette?
-// allow dragging in a wad, and identify any fonts within it
+// drag and drop for wads
+// pk3 support
 // little info popup about a font (source, copyright, character set...)
 // make translation more fast
 // - preconvert default translation?
@@ -28,21 +29,8 @@
 //   - no way to just enter a number
 // - preview image edges?
 //   - show width/height?
-import DOOM_FONTS from './data.js';
-// Decode the glyph data real quick, shh we're technically mutating a global
-for (let fontdef of Object.values(DOOM_FONTS)) {
-    for (let [ch, metrics] of Object.entries(fontdef.glyphs)) {
-        let [_, width, height, x, y, dx, dy] = metrics.match(/^(\d+)x(\d+)[+](\d+)[+](\d+)(?:@(-?\d+),(-?\d+))?$/);
-        fontdef.glyphs[ch] = {
-            x: parseInt(x, 10),
-            y: parseInt(y, 10),
-            width: parseInt(width, 10),
-            height: parseInt(height, 10),
-            dx: parseInt(dx ?? '0', 10),
-            dy: parseInt(dy ?? '0', 10),
-        };
-    }
-}
+"use strict";
+import { DOOM_FONTS, DOOM2_PALETTE } from './data.js';
 
 function mk(tag_selector, ...children) {
     let [tag, ...classes] = tag_selector.split('.');
@@ -91,6 +79,91 @@ function rgb(rrggbb) {
 function random_choice(list) {
     return list[Math.floor(Math.random() * list.length)];
 }
+
+function string_from_buffer_ascii(buf, start = 0, len) {
+    if (ArrayBuffer.isView(buf)) {
+        start += buf.byteOffset;
+        buf = buf.buffer;
+    }
+    return String.fromCharCode.apply(null, new Uint8Array(buf, start, len));
+}
+
+async function parse_wad(wadfile) {
+    // Use the Blob API to avoid loading the whole file at once, since it might be real big
+    // and we only care about a tiny bit of it
+    let header_buf = await wadfile.slice(0, 12).arrayBuffer();
+    let data = new DataView(header_buf);
+    let magic = string_from_buffer_ascii(data, 0, 4);
+    if (magic !== 'PWAD' && magic !== 'IWAD') {
+        if (magic.startsWith('PK')) {
+            throw new Error("This doesn't appear to be a WAD file.  (PK3 isn't supported, sorry!)");
+        }
+        else {
+            throw new Error("This doesn't appear to be a WAD file.");
+        }
+    }
+
+    let lumpct = data.getUint32(4, true);
+    let diroffset = data.getUint32(8, true);
+
+    let dir_buf = await wadfile.slice(diroffset, diroffset + 16 * lumpct).arrayBuffer();
+    data = new DataView(dir_buf);
+    let p = 0;
+    let lumps = [];
+    for (let i = 0; i < lumpct; i++) {
+        let offset = data.getUint32(p, true);
+        let size = data.getUint32(p + 4, true);
+        let rawname = string_from_buffer_ascii(data, p + 8, 8);
+        let nulpos = rawname.indexOf('\x00')
+        let name = nulpos < 0 ? rawname : rawname.substring(0, nulpos);
+        lumps.push({name: name.toUpperCase(), size, offset});
+
+        p += 16;
+    }
+
+    return lumps;
+}
+
+function parse_doom_graphic(buf, palette) {
+    let data = new DataView(buf);
+    let width = data.getUint16(0, true);
+    let height = data.getUint16(2, true);
+    let xoffset = data.getInt16(4, true);
+    let yoffset = data.getInt16(6, true);
+
+    let canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    let ctx = canvas.getContext('2d');
+    let imgdata = ctx.getImageData(0, 0, width, height);
+    let px = imgdata.data;
+
+    for (let x = 0; x < width; x++) {
+        let p = data.getInt32(8 + 4 * x, true);
+        while (true) {
+            let y0 = data.getUint8(p);
+            if (y0 === 0xff)
+                // FF marks last post
+                break;
+            let pixelct = data.getUint8(p + 1);
+            p += 3;  // skip header and a padding byte
+            for (let dy = 0; dy < pixelct; dy++) {
+                let index = data.getUint8(p);
+                let color = palette[index];
+                let q = ((y0 + dy) * width + x) * 4;
+                px[q + 0] = color[0];
+                px[q + 1] = color[1];
+                px[q + 2] = color[2];
+                px[q + 3] = 255;
+                p += 1;
+            }
+            p += 1;  // skip another padding byte
+        }
+    }
+
+    ctx.putImageData(imgdata, 0, 0);
+    return canvas;
+};
 
 // XXX absolutely no idea what this was for
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
@@ -427,7 +500,95 @@ const SAMPLE_MESSAGES = [{
 const TRANS_WIDTH = 32;
 const TRANS_HEIGHT = 32;
 let trans_canvas = mk('canvas', {width: TRANS_WIDTH, height: TRANS_HEIGHT});
-let font_images = {};
+
+// "Standard" fonts I scraped myself from various places and crammed into montages
+class BuiltinFont {
+    constructor(fontdef) {
+        this.glyphs = {};
+        // Decode metrics from WxH+X+Y into, like, numbers
+        for (let [ch, metrics] of Object.entries(fontdef.glyphs)) {
+            let [_, width, height, x, y, dx, dy] = metrics.match(/^(\d+)x(\d+)[+](\d+)[+](\d+)(?:@(-?\d+),(-?\d+))?$/);
+            this.glyphs[ch] = {
+                // Standard props
+                width: parseInt(width, 10),
+                height: parseInt(height, 10),
+                // Montage props
+                x: parseInt(x, 10),
+                y: parseInt(y, 10),
+                dx: parseInt(dx ?? '0', 10),
+                dy: parseInt(dy ?? '0', 10),
+            };
+        }
+
+        this.space_width = fontdef.space_width;
+        this.line_height = fontdef.line_height;
+        this.kerning = fontdef.kerning;
+        this.lightness_range = fontdef.lightness_range;
+
+        this.name = fontdef.meta.name;
+        this.creator = fontdef.meta.creator;
+        this.license = fontdef.meta.license;
+        this.source = fontdef.meta.source;
+
+        this.montage = new Image;
+        this.montage.src = fontdef.image;
+        this.loading_promise = this.montage.decode();
+    }
+
+    draw_glyph(glyph, ctx, x, y) {
+        // TODO wait, shouldn't 'y' be the baseline, not the top of the glyph
+        ctx.drawImage(
+            this.montage,
+            glyph.x, glyph.y, glyph.width, glyph.height,
+            x, y, glyph.width, glyph.height);
+    }
+}
+
+
+// Font loaded from a user-supplied WAD
+class WADFont {
+    constructor(glyphs) {
+        this.glyphs = glyphs;
+
+        // Hurriedly invent some metrics
+        this.line_height = 0;
+        this.space_width = 0;
+        let uniform_width = true;
+        for (let glyph of Object.values(glyphs)) {
+            this.line_height = Math.max(this.line_height, glyph.height);
+            if (this.space_width === 0) {
+                this.space_width = glyph.width;
+            }
+            else if (this.space_width !== glyph.width) {
+                uniform_width = false;
+            }
+        }
+        if (! uniform_width) {
+            // This is what ZDoom does, don't look at me
+            if ("N" in glyphs) {
+                this.space_width = Math.floor(glyphs["N"].width / 2 + 0.5);
+            }
+            else {
+                this.space_width = 4;
+            }
+        }
+
+        // Font kerning mostly exists for the big Doom menu fonts; for custom fonts you can use
+        // the global slider for now (since mixing fonts doesn't work yet)
+        this.kerning = 0;
+        this.lightness_range = [0, 255];  // TODO can just get from the palette?  or do i need the actual lightness of the colors that get used?  urgh
+
+        this.name = "";  // XXX ???
+        this.creator = "";  // XXX ???
+        this.license = "";  // XXX ???
+        this.source = "";  // XXX ???
+    }
+
+    draw_glyph(glyph, ctx, x, y) {
+        ctx.drawImage(glyph.canvas, x, y);
+    }
+}
+
 
 class BossBrain {
     constructor() {
@@ -436,9 +597,8 @@ class BossBrain {
         // Canvas we do most of our drawing to, at 1x
         this.buffer_canvas = mk('canvas');
 
-        this.font_images = {}  // fontname => source image
-
         this.form = document.querySelector('form');
+        this.fonts = {};
 
         this.init_form();
     }
@@ -446,27 +606,24 @@ class BossBrain {
     async init() {
         let load_promises = [];
         for (let [fontname, fontdef] of Object.entries(DOOM_FONTS)) {
-            let img = new Image;
-            img.src = fontdef.image;
-            font_images[fontname] = img;
-            load_promises.push(img.decode());
-            //document.body.append(img);
+            let font = new BuiltinFont(fontdef);
+            if (font.loading_promise) {
+                load_promises.push(font.loading_promise);
+            }
+            this.fonts[fontname] = font;
         }
 
         await Promise.all(load_promises);
 
-        let list = document.querySelector('#js-font-list');
+        this.font_list_el = document.querySelector('#js-font-list');
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
             // TODO pop open a lil info overlay for each of these
-            this.render_text({
+            let name_canvas = this.render_text({
                 text: "Hello, world!",
                 default_font: ident,
                 scale: 2,
+                canvas: null,
             });
-            let name_canvas = mk('canvas', {width: this.final_canvas.width, height: this.final_canvas.height});
-            name_canvas.getContext('2d').drawImage(this.final_canvas, 0, 0);
-
-            let glyphs = DOOM_FONTS[ident].glyphs;
             let li = mk('li',
                 mk('label',
                     mk('input', {type: 'radio', name: 'font', value: ident}),
@@ -476,7 +633,7 @@ class BossBrain {
                     name_canvas,
                 ),
             );
-            list.append(li);
+            this.font_list_el.append(li);
         }
 
         if (! this.form.elements['font'].value) {
@@ -517,6 +674,17 @@ class BossBrain {
             this.redraw_current_text();
         });
         this.form.classList.toggle('using-console-font', font_ctl.value === 'zdoom-console');
+
+        let wad_ctl = this.form.elements['wad'];
+        wad_ctl.addEventListener('change', ev => {
+            for (let file of ev.target.files) {
+                this.load_fonts_from_wad(file);
+            }
+        });
+        // TODO support drag and drop, uggh
+        document.querySelector('#button-upload').addEventListener('click', ev => {
+            wad_ctl.click();
+        });
 
         // Scale
         let scale_ctl = this.form.elements['scale'];
@@ -703,6 +871,9 @@ class BossBrain {
             if (el.type === 'checkbox' && el.value === value) {
                 el.checked = true;
             }
+            else if (el.type === 'file') {
+                el.value = '';
+            }
             else {
                 el.value = value;
             }
@@ -741,8 +912,182 @@ class BossBrain {
     }
 
     update_fragment() {
+        // FIXME do something with file uploads
         let data = new FormData(this.form);
+        data.delete('wad');  // file upload control does not have a useful value
+        let font = this.fonts[data.get('font')];
+        if (! (font instanceof BuiltinFont)) {
+            // The URL can't handle custom fonts, so fall back to the default
+            data.set('font', 'doom-small');
+        }
         history.replaceState(null, document.title, '#' + new URLSearchParams(data));
+    }
+
+    async load_fonts_from_wad(wadfile) {
+        let output_el = document.querySelector('#wad-uploader output');
+        output_el.classList.remove('--success', '--failure');
+        output_el.textContent = 'Beep boop, computing...';
+        output_el.offsetWidth;
+
+        let lumps;
+        try {
+            lumps = await parse_wad(wadfile);
+        }
+        catch (e) {
+            output_el.classList.add('--failure');
+            output_el.textContent = String(e);
+            return;
+        }
+        // Look for fonts by looking for lumps of the form NAMExxx, where xxx is a range of
+        // numbers spanning at least 65 to 90 (A-Z) or 97 to 122 (a-z)
+        let lump_index = {};
+        let possible_font_prefixes = [];
+        for (let lump of lumps) {
+            lump_index[lump.name] = lump;
+            if (lump.name.endsWith('65')) {
+                let numlen = 2;
+                if (lump.name.endsWith('0065')) {
+                    numlen = 4;
+                }
+                else if (lump.name.endsWith('065')) {
+                    numlen = 3;
+                }
+                possible_font_prefixes.push([lump.name, numlen]);
+            }
+            else if (lump.name.endsWith('097')) {
+                let numlen = 3;
+                if (lump.name.endsWith('0097')) {
+                    numlen = 4;
+                }
+                possible_font_prefixes.push([lump.name, numlen]);
+            }
+        }
+
+        if (possible_font_prefixes.length === 0) {
+            output_el.classList.add('--failure');
+            output_el.textContent = "Sorry! Couldn't find anything in this WAD that looks like a font.";
+            return;
+        }
+
+        // Extract the palette first, if any
+        let palette;
+        if ('PLAYPAL' in lump_index) {
+            let lump = lump_index['PLAYPAL'];
+            if (lump.size >= 768) {
+                palette = [];
+                let buf = await wadfile.slice(lump.offset, lump.offset + 768).arrayBuffer();
+                let bytes = new Uint8Array(buf);
+                for (let i = 0; i < 256; i++) {
+                    palette.push([bytes[i*3], bytes[i*3 + 1], bytes[i*3 + 2]]);
+                }
+            }
+        }
+        if (! palette) {
+            // Default to Doom 2 for now I guess
+            // TODO UI for choosing a different stock palette...?
+			palette = DOOM2_PALETTE;
+        }
+
+        let found_fonts = 0;
+        for (let [name, suffixlen] of possible_font_prefixes) {
+            let prefix = name.substring(0, name.length - suffixlen);
+            let n0 = parseInt(name.substring(name.length - suffixlen), 10);
+
+            let possible_glyphs = new Map;
+            for (let lump of lumps) {
+                if (lump.name.startsWith(prefix)) {
+                    let num = parseInt(lump.name.substring(prefix.length), 10);
+                    if (num !== num)
+                        continue;
+                    possible_glyphs.set(num, lump);
+                }
+            }
+
+            let found_all = true;
+            for (let n = n0 + 1; n < n0 + 26; n++) {
+                if (! possible_glyphs.has(n)) {
+                    found_all = false;
+                    break;
+                }
+            }
+            if (! found_all) {
+                console.log("not a font (no full alphabet):", prefix);
+                continue;
+            }
+
+            // We might still be fooled by e.g. a bunch of patches, so if there are too many
+            // "glyphs" in the [0, 31] range, it's probably not a font
+            let found_control = 0;
+            for (let n = 0; n < 32; n++) {
+                if (possible_glyphs.has(n)) {
+                    found_control += 1;
+                }
+            }
+            if (found_control > 8) {
+                console.log("not a font (too many control chars):", prefix);
+                continue;
+            }
+
+            // OK, finally, we think we have a font; convert the map into a table of
+            // glyphs and decode the image data
+            console.log("looks like we have a font:", prefix);
+            let glyphs = {};
+            for (let [n, lump] of possible_glyphs) {
+                let buf = await wadfile.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
+                let canvas = parse_doom_graphic(buf, palette);
+                glyphs[String.fromCharCode(n)] = {
+                    width: canvas.width,
+                    height: canvas.height,
+                    canvas: canvas,
+                };
+            }
+
+            let ident = wadfile.name + ":" + prefix;
+            this.fonts[ident] = new WADFont(glyphs);
+
+            let name_canvas = this.render_text({
+                text: "Hello, world!",
+                default_font: ident,
+                scale: 2,
+                canvas: null,
+            });
+            let li = mk('li',
+                mk('label',
+                    mk('input', {type: 'radio', name: 'font', value: ident}),
+                    " ",
+                    `${wadfile.name} — ${prefix}`,
+                    mk('br'),
+                    name_canvas,
+                ),
+            );
+            this.font_list_el.append(li);
+            found_fonts += 1;
+
+            // If this is the first font we found, go ahead and select it and redraw.
+            // This also speeds up getting back where you were after refreshing
+            if (found_fonts === 1) {
+                this.form.elements['font'].value = ident;
+                // Fire a 'change' event so state gets tidied up
+                // FIXME uh this doesn't seem to update the .selected though
+                let ev = new Event('change');
+                for (let radio of this.form.elements['font']) {
+                    if (radio.checked) {
+                        radio.dispatchEvent(ev);
+                        break;
+                    }
+                }
+                this.redraw_current_text();
+            }
+        }
+
+        if (found_fonts === 0) {
+            output_el.classList.add('--failure');
+            output_el.textContent = "Sorry! Couldn't find anything in this WAD that looks like a font.";
+            return;
+        }
+
+        output_el.classList.add('--success');
+        output_el.textContent = `Found ${found_fonts === 1 ? "a font" : String(found_fonts) + " fonts"}, you're all set!`;
     }
 
     // Roll a random message and color
@@ -789,6 +1134,7 @@ class BossBrain {
 
     redraw_current_text() {
         let elements = this.form.elements;
+        let font = this.fonts[elements['font'].value];
 
         let wrap = null;
         if (elements['wrap'].checked) {
@@ -796,7 +1142,6 @@ class BossBrain {
             let unit = elements['wrap-units'].value;
             let scale = 1;
             if (unit === 'em') {
-                let font = DOOM_FONTS[elements['font'].value];
                 if (font.glyphs['m']) {
                     scale = font.glyphs['m'].width;
                 }
@@ -809,7 +1154,6 @@ class BossBrain {
                 }
             }
             else if (unit === 'sp') {
-                let font = DOOM_FONTS[elements['font'].value];
                 if (font.glyphs[' ']) {
                     scale = font.glyphs[' '].width;
                 }
@@ -855,13 +1199,28 @@ class BossBrain {
         let background = args.background;
         let wrap = args.wrap || null;
 
+        let final_canvas;
+        if (args.canvas === null) {
+            // This means use a new canvas
+            final_canvas = document.createElement('canvas');
+            final_canvas.width = 32;
+            final_canvas.height = 32;
+        }
+        else if (args.canvas) {
+            final_canvas = args.canvas;
+        }
+        else {
+            // Undefined means use the default canvas
+            final_canvas = this.final_canvas;
+        }
+
         if (syntax === 'acs') {
             text = text.replace(/\\\n/g, "").replace(/\\n/g, "\n");
         }
 
         let lines = text.split('\n');
 
-        let font = DOOM_FONTS[default_font];
+        let font = this.fonts[default_font];
         // XXX handle error?
 
         // Compute some layout metrics first
@@ -1014,8 +1373,8 @@ class BossBrain {
         let canvas_height = y - line_spacing;
         this.buffer_canvas.width = canvas_width;
         this.buffer_canvas.height = canvas_height;
-        this.final_canvas.width = canvas_width * scale;
-        this.final_canvas.height = canvas_height * scale;
+        final_canvas.width = canvas_width * scale;
+        final_canvas.height = canvas_height * scale;
         if (canvas_width === 0 || canvas_height === 0) {
             return;
         }
@@ -1029,6 +1388,7 @@ class BossBrain {
 
         // And draw!
         let ctx = this.buffer_canvas.getContext('2d');
+        // FIXME consolidate into one object
         for (let draw of draws) {
             let line_stat = line_stats[draw.lineno];
             let glyph = draw.glyph;
@@ -1044,10 +1404,7 @@ class BossBrain {
                 // be translating
                 let trans_ctx = trans_canvas.getContext('2d');
                 trans_ctx.clearRect(0, 0, glyph.width, glyph.height);
-                trans_ctx.drawImage(
-                    font_images[default_font],
-                    glyph.x, glyph.y, glyph.width, glyph.height,
-                    0, 0, glyph.width, glyph.height);
+                font.draw_glyph(glyph, trans_ctx, 0, 0);
 
                 // Now translate it in place
                 let imagedata = trans_ctx.getImageData(0, 0, glyph.width, glyph.height);
@@ -1086,16 +1443,13 @@ class BossBrain {
             }
             else {
                 // Simple case: no translation is a straight blit
-                ctx.drawImage(
-                    font_images[default_font],
-                    glyph.x, glyph.y, glyph.width, glyph.height,
-                    px, py, glyph.width, glyph.height);
+                font.draw_glyph(glyph, ctx, px, py);
             }
         }
 
         // Finally, scale up the offscreen canvas
-        let final_ctx = this.final_canvas.getContext('2d');
-        let aabb = [0, 0, this.final_canvas.width, this.final_canvas.height];
+        let final_ctx = final_canvas.getContext('2d');
+        let aabb = [0, 0, final_canvas.width, final_canvas.height];
         if (background) {
             final_ctx.fillStyle = background;
             final_ctx.fillRect(...aabb);
@@ -1105,6 +1459,8 @@ class BossBrain {
         }
         final_ctx.imageSmoothingEnabled = false;
         final_ctx.drawImage(this.buffer_canvas, ...aabb);
+
+        return final_canvas;
     }
 }
 

@@ -114,7 +114,7 @@ FONTDEFS = {
     'strife-small': dict(
         glob='_fonts/strife/STBFN*.png',
         format='composite',
-            meta=dict(
+        meta=dict(
             name="Strife — small font",
             desc="Used for in-game messages and menu prompts.",
             creator="unknown",  # XXX?
