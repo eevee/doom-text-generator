@@ -23,6 +23,9 @@
     input[type=checkbox] {
         margin: 0 3px;
     }
+    input:disabled {
+        opacity: 0.5;
+    }
     button {
         padding: 0.25em;
     }
@@ -283,6 +286,38 @@
         vertical-align: middle;
     }
 
+    .shabby-gradient-editor {
+        display: grid;
+        grid:
+            "gradient gradient gradient" 1em
+            "left     middle   right"    min-content
+            ".        checkbox ."        min-content
+            / 1fr 1fr 1fr
+        ;
+        gap: 0.5em;
+    }
+    .shabby-gradient-editor > output {
+        grid-area: gradient;
+        display: block;
+        background: linear-gradient(to right, black, white);
+        border: 1px solid black;
+    }
+    .shabby-gradient-editor > input[type=color]:nth-of-type(1) {
+        grid-area: left;
+    }
+    .shabby-gradient-editor > input[type=color]:nth-of-type(2) {
+        grid-area: middle;
+        justify-self: center;
+    }
+    .shabby-gradient-editor > input[type=color]:nth-of-type(3) {
+        grid-area: right;
+        justify-self: right;
+    }
+    .shabby-gradient-editor > input[type=checkbox] {
+        grid-area: checkbox;
+        justify-self: center;
+    }
+
     /* Solo mode */
     body.solo form {
         background: transparent;
@@ -434,6 +469,18 @@
                     <p>Not yet implemented.</p>
                 </li>
             </ul>
+
+            <h2>Custom color setup</h2>
+            <dl class="twocol">
+                <dt>Custom 1</dt>
+                <dd class="shabby-gradient-editor">
+                    <output></output>
+                    <input name="custom1a" type="color" value="#000000">
+                    <input name="custom1b" type="color" value="#808080" disabled>
+                    <input name="custom1c" type="color" value="#ffffff">
+                    <input name="custom1mid" type="checkbox">
+                </dd>
+            </dl>
         </section>
 
         <section id="section-color">
@@ -441,7 +488,7 @@
             <ul class="radioset translations">
                 <li><label><input name="translation" type="radio" value="" checked> Default</label></li>
             </ul>
-            <p>These are ZDoom's standard color translations and use the ZDoom recoloring algorithm.</p>
+            <p>These are ZDoom's standard color translations and use the ZDoom recoloring algorithm.  Results are unlikely to be within the Doom palette.</p>
             <p>The buttons on the right will set the background color.</p>
         </section>
 

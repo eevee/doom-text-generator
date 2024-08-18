@@ -1712,6 +1712,280 @@ export const DOOM_FONTS = {
   }
 };
 
+
+// used for rgb`#000000`
+export function rgb(rrggbb) {
+    rrggbb = rrggbb[0];
+    let ret = [
+        parseInt(rrggbb.substring(1, 3), 16),
+        parseInt(rrggbb.substring(3, 5), 16),
+        parseInt(rrggbb.substring(5, 7), 16),
+    ];
+    ret.hex = rrggbb;
+    return ret;
+}
+
+
+export const ZDOOM_TRANSLATIONS = {
+    brick: {
+        acs_code: 'a',
+        normal: [[0, 256, rgb`#470000`, rgb`#FFB8B8`]],
+        console: [
+            [0, 127, rgb`#470000`, rgb`#A35C5C`],
+            [128, 256, rgb`#800000`, rgb`#FFFEFE`],
+        ],
+        flat: rgb`#CC3333`,
+    },
+    tan: {
+        acs_code: 'b',
+        normal: [[0, 256, rgb`#332B13`, rgb`#FFEBDF`]],
+        console: [
+            [0, 127, rgb`#332B13`, rgb`#998B79`],
+            [128, 256, rgb`#998B79`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#D2B48C`,
+    },
+    gray: {
+        acs_code: 'c',
+        aliases: ['Grey'],
+        normal: [[0, 256, rgb`#272727`, rgb`#EFEFEF`]],
+        console: [
+            [0, 127, rgb`#272727`, rgb`#8B8B8B`],
+            [128, 256, rgb`#505050`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#CCCCCC`,
+    },
+    green: {
+        acs_code: 'd',
+        normal: [[0, 256, rgb`#0B1707`, rgb`#77FF6F`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#007F00`],
+            [128, 256, rgb`#00FF00`, rgb`#FEFFFE`],
+        ],
+        flat: rgb`#00CC00`,
+    },
+    brown: {
+        acs_code: 'e',
+        normal: [[0, 256, rgb`#533F2F`, rgb`#BFA78F`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#7F4000`],
+            [128, 256, rgb`#432F1F`, rgb`#FFE7CF`],
+        ],
+        flat: rgb`#996633`,
+    },
+    gold: {
+        acs_code: 'f',
+        normal: [[0, 256, rgb`#732B00`, rgb`#FFFF73`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#7FC040`],
+            [128, 256, rgb`#DFBF00`, rgb`#DFFFFE`],
+        ],
+        flat: rgb`#FFCC00`,
+    },
+    red: {
+        acs_code: 'g',
+        normal: [[0, 256, rgb`#3F0000`, rgb`#FF0000`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#7F0000`],
+            [128, 256, rgb`#FF0000`, rgb`#FFFEFE`],
+        ],
+        flat: rgb`#FF5566`,
+    },
+    blue: {
+        acs_code: 'h',
+        normal: [[0, 256, rgb`#000027`, rgb`#0000FF`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#00007F`],
+            [128, 256, rgb`#4040FF`, rgb`#DEDEFF`],
+        ],
+        flat: rgb`#9999FF`,
+    },
+    orange: {
+        acs_code: 'i',
+        normal: [[0, 256, rgb`#200000`, rgb`#FF8000`]],
+        console: [
+            [0, 127, rgb`#200000`, rgb`#904000`],
+            [128, 256, rgb`#FF7F00`, rgb`#FFFEFE`],
+        ],
+        flat: rgb`#FFAA00`,
+    },
+    // This is designed to match the white Heretic/Hexen font.
+    // It is close to the gray BOOM font, but not quite the same.
+    white: {
+        acs_code: 'j',
+        normal: [[0, 256, rgb`#242424`, rgb`#FFFFFF`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#7F7F7F`],
+            [128, 256, rgb`#808080`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#DFDFDF`,
+    },
+    // This is designed to match the yellow Hexen font, which has a
+    // gray outline filled with shades of yellow.
+    yellow: {
+        acs_code: 'k',
+        normal: [
+            [0, 64, rgb`#272727`, rgb`#515151`],
+            [65, 207, rgb`#784918`, rgb`#F3A718`],
+            [208, 256, rgb`#F3A82A`, rgb`#FCD043`],
+        ],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#7F7F00`],
+            [128, 256, rgb`#FFFF00`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#EEEE33`,
+    },
+    black: {
+        acs_code: 'm',
+        normal: [[0, 256, rgb`#131313`, rgb`#505050`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#323232`],
+            [128, 256, rgb`#0A0A0A`, rgb`#505050`],
+        ],
+        flat: rgb`#000000`,
+    },
+    lightblue: {
+        acs_code: 'n',
+        normal: [[0, 256, rgb`#000073`, rgb`#B4B4FF`]],
+        console: [
+            [0, 127, rgb`#00003C`, rgb`#5050FF`],
+            [128, 256, rgb`#8080FF`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#33EEFF`,
+    },
+    cream: {
+        acs_code: 'o',
+        normal: [[0, 256, rgb`#CF8353`, rgb`#FFD7BB`]],
+        console: [
+            [0, 127, rgb`#2B230F`, rgb`#BF7B4B`],
+            [128, 256, rgb`#FFB383`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#FFCC99`,
+    },
+    olive: {
+        acs_code: 'p',
+        normal: [[0, 256, rgb`#2F371F`, rgb`#7B7F50`]],
+        console: [
+            [0, 127, rgb`#373F27`, rgb`#7B7F63`],
+            [128, 256, rgb`#676B4F`, rgb`#D1D8A8`],
+        ],
+        flat: rgb`#D1D8A8`,
+    },
+    darkgreen: {
+        acs_code: 'q',
+        aliases: ["Dark Green"],
+        normal: [[0, 256, rgb`#0B1707`, rgb`#439337`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#005800`],
+            [128, 256, rgb`#008C00`, rgb`#DCFFDC`],
+        ],
+        flat: rgb`#008C00`,
+    },
+    darkred: {
+        acs_code: 'r',
+        aliases: ["Dark Red"],
+        normal: [[0, 256, rgb`#2B0000`, rgb`#AF2B2B`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#730000`],
+            [128, 255, rgb`#800000`, rgb`#FFDCDC`],
+        ],
+        flat: rgb`#800000`,
+    },
+    darkbrown: {
+        acs_code: 's',
+        aliases: ["Dark Brown"],
+        normal: [[0, 256, rgb`#1F170B`, rgb`#A36B3F`]],
+        console: [
+            [0, 127, rgb`#2B230F`, rgb`#773000`],
+            [128, 256, rgb`#735743`, rgb`#F7BD58`],
+        ],
+        flat: rgb`#663333`,
+    },
+    purple: {
+        acs_code: 't',
+        normal: [[0, 256, rgb`#230023`, rgb`#CF00CF`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#9F009B`],
+            [128, 256, rgb`#FF00FF`, rgb`#FFFFFF`],
+        ],
+        flat: rgb`#9966CC`,
+    },
+    darkgray: {
+        acs_code: 'u',
+        aliases: ["DarkGrey", "Dark Gray", "Dark Grey"],
+        normal: [[0, 256, rgb`#232323`, rgb`#8B8B8B`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#646464`],
+            [128, 256, rgb`#404040`, rgb`#B4B4B4`],
+        ],
+        flat: rgb`#808080`,
+    },
+    cyan: {
+        acs_code: 'v',
+        normal: [[0, 256, rgb`#001F1F`, rgb`#00F0F0`]],
+        console: [
+            [0, 127, rgb`#000000`, rgb`#007F7F`],
+            [128, 256, rgb`#00FFFF`, rgb`#FEFFFF`],
+        ],
+        flat: rgb`#00DDDD`,
+    },
+    ice: {
+        acs_code: 'w',
+        normal: [
+            [0, 94, rgb`#343450`, rgb`#7C7C98`],
+            [95, 256, rgb`#7C7C98`, rgb`#E0E0E0`],
+        ],
+        console: [
+            [0, 127, rgb`#343450`, rgb`#7C7C98`],
+            [128, 256, rgb`#7C7C98`, rgb`#E0E0E0`],
+        ],
+        flat: rgb`#7C7C98`,
+    },
+    fire: {
+        acs_code: 'x',
+        normal: [
+            [0, 104, rgb`#660000`, rgb`#D57604`],
+            [105, 256, rgb`#D57604`, rgb`#FFFF00`],
+        ],
+        console: [
+            [0, 127, rgb`#6F0000`, rgb`#D57604`],
+            [128, 256, rgb`#D57604`, rgb`#FFFF00`],
+        ],
+        flat: rgb`#D57604`,
+    },
+    sapphire: {
+        acs_code: 'y',
+        normal: [
+            [0, 94, rgb`#000468`, rgb`#506CFC`],
+            [95, 256, rgb`#506CFC`, rgb`#50ECFC`],
+        ],
+        console: [
+            [0, 127, rgb`#000468`, rgb`#506CFC`],
+            [128, 256, rgb`#506CFC`, rgb`#50ECFC`],
+        ],
+        flat: rgb`#506CFC`,
+    },
+    teal: {
+        acs_code: 'z',
+        normal: [
+            [0, 90, rgb`#001F1F`, rgb`#236773`],
+            [91, 256, rgb`#236773`, rgb`#7BB3C3`],
+        ],
+        console: [
+            [0, 127, rgb`#001F1F`, rgb`#236773`],
+            [128, 256, rgb`#236773`, rgb`#7BB3C3`],
+        ],
+        flat: rgb`#236773`,
+    },
+    // TODO also some special ones: - + * something
+};
+export const ZDOOM_ACS_TRANSLATION_CODES = {
+    l: null,  // no translation
+};
+for (let [name, trans] of Object.entries(ZDOOM_TRANSLATIONS)) {
+    ZDOOM_ACS_TRANSLATION_CODES[trans.acs_code] = name;
+}
+
 export const DOOM2_PALETTE = [
     [[0, 0, 0], [31, 23, 11], [23, 15, 7], [75, 75, 75], [255, 255, 255], [27, 27, 27], [19, 19, 19], [11, 11, 11]],
     [[7, 7, 7], [47, 55, 31], [35, 43, 15], [23, 31, 7], [15, 23, 0], [79, 59, 43], [71, 51, 35], [63, 43, 27]],

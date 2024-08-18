@@ -17,6 +17,8 @@
 // - preconvert default translation?
 // allow using different fonts in one message (whoof)
 // fix accents and other uses of too-high letters
+// word wrap includes spaces oops
+// why does "doom menu" have massive descender space whereas "doom menu small caps" does not
 //
 // TODO nice to do while i'm here:
 // - modernize js
@@ -30,7 +32,10 @@
 // - preview image edges?
 //   - show width/height?
 "use strict";
-import { DOOM_FONTS, DOOM2_PALETTE } from './data.js';
+import {
+    DOOM_FONTS, DOOM2_PALETTE,
+    ZDOOM_TRANSLATIONS, ZDOOM_ACS_TRANSLATION_CODES, rgb
+} from './data.js';
 
 function mk(tag_selector, ...children) {
     let [tag, ...classes] = tag_selector.split('.');
@@ -64,20 +69,19 @@ function trigger_local_download(filename, blob) {
     }, 60 * 1000);
 }
 
-// used for rgb`#000000`
-function rgb(rrggbb) {
-    rrggbb = rrggbb[0];
-    let ret = [
-        parseInt(rrggbb.substring(1, 3), 16),
-        parseInt(rrggbb.substring(3, 5), 16),
-        parseInt(rrggbb.substring(5, 7), 16),
-    ];
-    ret.hex = rrggbb;
-    return ret;
-}
-
 function random_choice(list) {
     return list[Math.floor(Math.random() * list.length)];
+}
+
+function translation_to_gradient(spans) {
+    let parts = ["linear-gradient(to right"];
+    for (let span of spans) {
+        // color + position
+        parts.push(`, ${span[2].hex} ${span[0] / 255 * 100}%`);
+        parts.push(`, ${span[3].hex} ${span[1] / 255 * 100}%`);
+    }
+    parts.push(")");
+    return parts.join('');
 }
 
 function string_from_buffer_ascii(buf, start = 0, len) {
@@ -167,267 +171,6 @@ function parse_doom_graphic(buf, palette) {
 
 // XXX absolutely no idea what this was for
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
-
-// TODO does vanilla do anything like this??  is this converted to the palette?
-const ZDOOM_TRANSLATIONS = {
-    brick: {
-        acs_code: 'a',
-        normal: [[0, 256, rgb`#470000`, rgb`#FFB8B8`]],
-        console: [
-            [0, 127, rgb`#470000`, rgb`#A35C5C`],
-            [128, 256, rgb`#800000`, rgb`#FFFEFE`],
-        ],
-        flat: rgb`#CC3333`,
-    },
-    tan: {
-        acs_code: 'b',
-        normal: [[0, 256, rgb`#332B13`, rgb`#FFEBDF`]],
-        console: [
-            [0, 127, rgb`#332B13`, rgb`#998B79`],
-            [128, 256, rgb`#998B79`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#D2B48C`,
-    },
-    gray: {
-        acs_code: 'c',
-        aliases: ['Grey'],
-        normal: [[0, 256, rgb`#272727`, rgb`#EFEFEF`]],
-        console: [
-            [0, 127, rgb`#272727`, rgb`#8B8B8B`],
-            [128, 256, rgb`#505050`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#CCCCCC`,
-    },
-    green: {
-        acs_code: 'd',
-        normal: [[0, 256, rgb`#0B1707`, rgb`#77FF6F`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#007F00`],
-            [128, 256, rgb`#00FF00`, rgb`#FEFFFE`],
-        ],
-        flat: rgb`#00CC00`,
-    },
-    brown: {
-        acs_code: 'e',
-        normal: [[0, 256, rgb`#533F2F`, rgb`#BFA78F`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#7F4000`],
-            [128, 256, rgb`#432F1F`, rgb`#FFE7CF`],
-        ],
-        flat: rgb`#996633`,
-    },
-    gold: {
-        acs_code: 'f',
-        normal: [[0, 256, rgb`#732B00`, rgb`#FFFF73`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#7FC040`],
-            [128, 256, rgb`#DFBF00`, rgb`#DFFFFE`],
-        ],
-        flat: rgb`#FFCC00`,
-    },
-    red: {
-        acs_code: 'g',
-        normal: [[0, 256, rgb`#3F0000`, rgb`#FF0000`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#7F0000`],
-            [128, 256, rgb`#FF0000`, rgb`#FFFEFE`],
-        ],
-        flat: rgb`#FF5566`,
-    },
-    blue: {
-        acs_code: 'h',
-        normal: [[0, 256, rgb`#000027`, rgb`#0000FF`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#00007F`],
-            [128, 256, rgb`#4040FF`, rgb`#DEDEFF`],
-        ],
-        flat: rgb`#9999FF`,
-    },
-    orange: {
-        acs_code: 'i',
-        normal: [[0, 256, rgb`#200000`, rgb`#FF8000`]],
-        console: [
-            [0, 127, rgb`#200000`, rgb`#904000`],
-            [128, 256, rgb`#FF7F00`, rgb`#FFFEFE`],
-        ],
-        flat: rgb`#FFAA00`,
-    },
-    // This is designed to match the white Heretic/Hexen font.
-    // It is close to the gray BOOM font, but not quite the same.
-    white: {
-        acs_code: 'j',
-        normal: [[0, 256, rgb`#242424`, rgb`#FFFFFF`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#7F7F7F`],
-            [128, 256, rgb`#808080`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#DFDFDF`,
-    },
-    // This is designed to match the yellow Hexen font, which has a
-    // gray outline filled with shades of yellow.
-    yellow: {
-        acs_code: 'k',
-        normal: [
-            [0, 64, rgb`#272727`, rgb`#515151`],
-            [65, 207, rgb`#784918`, rgb`#F3A718`],
-            [208, 256, rgb`#F3A82A`, rgb`#FCD043`],
-        ],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#7F7F00`],
-            [128, 256, rgb`#FFFF00`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#EEEE33`,
-    },
-    black: {
-        acs_code: 'm',
-        normal: [[0, 256, rgb`#131313`, rgb`#505050`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#323232`],
-            [128, 256, rgb`#0A0A0A`, rgb`#505050`],
-        ],
-        flat: rgb`#000000`,
-    },
-    lightblue: {
-        acs_code: 'n',
-        normal: [[0, 256, rgb`#000073`, rgb`#B4B4FF`]],
-        console: [
-            [0, 127, rgb`#00003C`, rgb`#5050FF`],
-            [128, 256, rgb`#8080FF`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#33EEFF`,
-    },
-    cream: {
-        acs_code: 'o',
-        normal: [[0, 256, rgb`#CF8353`, rgb`#FFD7BB`]],
-        console: [
-            [0, 127, rgb`#2B230F`, rgb`#BF7B4B`],
-            [128, 256, rgb`#FFB383`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#FFCC99`,
-    },
-    olive: {
-        acs_code: 'p',
-        normal: [[0, 256, rgb`#2F371F`, rgb`#7B7F50`]],
-        console: [
-            [0, 127, rgb`#373F27`, rgb`#7B7F63`],
-            [128, 256, rgb`#676B4F`, rgb`#D1D8A8`],
-        ],
-        flat: rgb`#D1D8A8`,
-    },
-    darkgreen: {
-        acs_code: 'q',
-        aliases: ["Dark Green"],
-        normal: [[0, 256, rgb`#0B1707`, rgb`#439337`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#005800`],
-            [128, 256, rgb`#008C00`, rgb`#DCFFDC`],
-        ],
-        flat: rgb`#008C00`,
-    },
-    darkred: {
-        acs_code: 'r',
-        aliases: ["Dark Red"],
-        normal: [[0, 256, rgb`#2B0000`, rgb`#AF2B2B`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#730000`],
-            [128, 255, rgb`#800000`, rgb`#FFDCDC`],
-        ],
-        flat: rgb`#800000`,
-    },
-    darkbrown: {
-        acs_code: 's',
-        aliases: ["Dark Brown"],
-        normal: [[0, 256, rgb`#1F170B`, rgb`#A36B3F`]],
-        console: [
-            [0, 127, rgb`#2B230F`, rgb`#773000`],
-            [128, 256, rgb`#735743`, rgb`#F7BD58`],
-        ],
-        flat: rgb`#663333`,
-    },
-    purple: {
-        acs_code: 't',
-        normal: [[0, 256, rgb`#230023`, rgb`#CF00CF`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#9F009B`],
-            [128, 256, rgb`#FF00FF`, rgb`#FFFFFF`],
-        ],
-        flat: rgb`#9966CC`,
-    },
-    darkgray: {
-        acs_code: 'u',
-        aliases: ["DarkGrey", "Dark Gray", "Dark Grey"],
-        normal: [[0, 256, rgb`#232323`, rgb`#8B8B8B`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#646464`],
-            [128, 256, rgb`#404040`, rgb`#B4B4B4`],
-        ],
-        flat: rgb`#808080`,
-    },
-    cyan: {
-        acs_code: 'v',
-        normal: [[0, 256, rgb`#001F1F`, rgb`#00F0F0`]],
-        console: [
-            [0, 127, rgb`#000000`, rgb`#007F7F`],
-            [128, 256, rgb`#00FFFF`, rgb`#FEFFFF`],
-        ],
-        flat: rgb`#00DDDD`,
-    },
-    ice: {
-        acs_code: 'w',
-        normal: [
-            [0, 94, rgb`#343450`, rgb`#7C7C98`],
-            [95, 256, rgb`#7C7C98`, rgb`#E0E0E0`],
-        ],
-        console: [
-            [0, 127, rgb`#343450`, rgb`#7C7C98`],
-            [128, 256, rgb`#7C7C98`, rgb`#E0E0E0`],
-        ],
-        flat: rgb`#7C7C98`,
-    },
-    fire: {
-        acs_code: 'x',
-        normal: [
-            [0, 104, rgb`#660000`, rgb`#D57604`],
-            [105, 256, rgb`#D57604`, rgb`#FFFF00`],
-        ],
-        console: [
-            [0, 127, rgb`#6F0000`, rgb`#D57604`],
-            [128, 256, rgb`#D57604`, rgb`#FFFF00`],
-        ],
-        flat: rgb`#D57604`,
-    },
-    sapphire: {
-        acs_code: 'y',
-        normal: [
-            [0, 94, rgb`#000468`, rgb`#506CFC`],
-            [95, 256, rgb`#506CFC`, rgb`#50ECFC`],
-        ],
-        console: [
-            [0, 127, rgb`#000468`, rgb`#506CFC`],
-            [128, 256, rgb`#506CFC`, rgb`#50ECFC`],
-        ],
-        flat: rgb`#506CFC`,
-    },
-    teal: {
-        acs_code: 'z',
-        normal: [
-            [0, 90, rgb`#001F1F`, rgb`#236773`],
-            [91, 256, rgb`#236773`, rgb`#7BB3C3`],
-        ],
-        console: [
-            [0, 127, rgb`#001F1F`, rgb`#236773`],
-            [128, 256, rgb`#236773`, rgb`#7BB3C3`],
-        ],
-        flat: rgb`#236773`,
-    },
-    // TODO also some special ones: - + * something
-};
-const TRANSLATION_ACS_INDEX = {
-    l: null,
-};
-for (let [name, trans] of Object.entries(ZDOOM_TRANSLATIONS)) {
-    TRANSLATION_ACS_INDEX[trans.acs_code] = name;
-}
 
 
 const SAMPLE_MESSAGES = [{
@@ -637,6 +380,16 @@ class BossBrain {
         if (! this.form.elements['font'].value) {
             this.form.elements['font'].value = 'doom-small';
         }
+
+        this.translations = Object.assign({}, ZDOOM_TRANSLATIONS);
+        // Add slots for custom ones
+        this.custom_translations = ['custom1'];
+        this.translations['custom1'] = {
+            normal: [[0, 255, rgb`#000000`, rgb`#FFFFFF`]],
+            console: [[0, 255, rgb`#000000`, rgb`#FFFFFF`]],
+            flat: rgb`#FFFFFF`,
+            is_custom: true,
+        };
     }
 
     async init_form() {
@@ -753,31 +506,24 @@ class BossBrain {
         }
 
         // Translations
-        function translation_to_gradient(spans) {
-            let parts = ["linear-gradient(to right"];
-            for (let span of spans) {
-                // color + position
-                parts.push(`, ${span[2].hex} ${span[0] / 255 * 100}%`);
-                parts.push(`, ${span[3].hex} ${span[1] / 255 * 100}%`);
-            }
-            parts.push(")");
-            return parts.join('');
-        }
         let trans_list = this.form.querySelector('.translations');
-        for (let [name, trans] of Object.entries(ZDOOM_TRANSLATIONS)) {
+        this.translation_elements = {};
+        for (let [name, trans] of Object.entries(this.translations)) {
             let normal_example = mk('div.translation-example.-normal');
             normal_example.style.backgroundImage = translation_to_gradient(trans.normal);
             let console_example = mk('div.translation-example.-console');
-            console_example.style.backgroundImage = translation_to_gradient(trans.console);
+            console_example.style.backgroundImage = translation_to_gradient(trans.console ?? trans.normal);
 
-            trans_list.append(mk('li', mk('label',
+            let el = mk('label',
                 mk('input', {name: 'translation', type: 'radio', value: name}),
                 normal_example,
                 console_example,
                 mk('span.name', name),
-                mk('span.acs-escape', '\\c' + trans.acs_code),
-                mk('button', {type: 'button', style: `background: ${trans.flat.hex}`, 'data-hex': trans.flat.hex}),
-            )));
+                mk('span.acs-escape', trans.acs_code ? '\\c' + trans.acs_code : ''),
+                trans.flat ? mk('button', {type: 'button', style: `background: ${trans.flat.hex}`, 'data-hex': trans.flat.hex}) : '',
+            );
+            this.translation_elements[name] = el;
+            trans_list.append(mk('li', el));
         }
         trans_list.addEventListener('change', redraw_handler);
         // Catch button clicks
@@ -788,6 +534,31 @@ class BossBrain {
             this.set_background(ev.target.getAttribute('data-hex'));
         });
 
+        // Custom translations
+        for (let name of this.custom_translations) {
+            // TODO save/load from fragment in some sensible way, oy
+            // TODO initialize also?  either the form to the translation or vice versa
+            let start = this.form.elements[name + 'a'];
+            let middle = this.form.elements[name + 'b'];
+            let end = this.form.elements[name + 'c'];
+            let use_middle = this.form.elements[name + 'mid'];
+
+            Object.assign(this.translations[name], {
+                start_ctl: start,
+                middle_ctl: middle,
+                end_ctl: end,
+                use_middle_ctl: use_middle,
+            });
+
+            let handler = ev => {
+                this.update_custom_translation(name);
+            };
+            for (let el of [start, middle, end, use_middle]) {
+                el.addEventListener('change', handler);
+            }
+        }
+
+        // Miscellaneous
         let handle_radioset = ev => this._update_radioset(ev.target.closest('ul.radioset'));
         for (let ul of document.querySelectorAll('ul.radioset')) {
             ul.addEventListener('change', handle_radioset);
@@ -907,6 +678,10 @@ class BossBrain {
         line_spacing_ctl.parentNode.querySelector('output').textContent = String(line_spacing_ctl.value);
 
         document.body.classList.toggle('solo', this.form.elements['solo'].checked);
+
+        for (let name of this.custom_translations) {
+            this.update_custom_translation(name);
+        }
     }
 
     update_fragment() {
@@ -1099,7 +874,7 @@ class BossBrain {
             this.form.elements['translation'].value = '';
         }
         else {
-            this.form.elements['translation'].value = random_choice(Object.keys(ZDOOM_TRANSLATIONS));
+            this.form.elements['translation'].value = random_choice(Object.keys(this.translations));
         }
 
         this._update_all_radiosets();
@@ -1128,6 +903,33 @@ class BossBrain {
         else {
             canvas_wrapper.style.backgroundColor = 'transparent';
         }
+    }
+
+    update_custom_translation(name) {
+        let trans = this.translations[name];
+        if (trans.use_middle_ctl.checked) {
+            trans.normal = [
+                [0, 127, rgb([trans.start_ctl.value]), rgb([trans.middle_ctl.value])],
+                [128, 255, rgb([trans.middle_ctl.value]), rgb([trans.end_ctl.value])],
+            ];
+        }
+        else {
+            trans.normal = [[0, 255, rgb([trans.start_ctl.value]), rgb([trans.end_ctl.value])]];
+        }
+        trans.console = trans.normal;
+
+        trans.middle_ctl.disabled = ! trans.use_middle_ctl.checked;
+
+        // FIXME when there's several
+        let output = document.querySelector('.shabby-gradient-editor output');
+        let gradient = translation_to_gradient(trans.normal);
+        output.style.backgroundImage = gradient;
+        for (let ex of this.translation_elements[name].querySelectorAll('div.translation-example')) {
+            ex.style.backgroundImage = gradient;
+        }
+
+        // TODO only need to do this if it actually uses this translation...
+        this.redraw_current_text();
     }
 
     redraw_current_text() {
@@ -1247,9 +1049,11 @@ class BossBrain {
                 if (match[1] !== undefined) {
                     // ACS translation by name
                     // TODO this fudges the aliasing a bit
-                    // TODO doesn't support "untranslated"
                     translation = match[1].toLowerCase().replace(/ /g, '').replace(/grey/g, 'gray');
-                    if (ZDOOM_TRANSLATIONS[translation] === undefined) {
+                    if (translation === 'untranslated') {
+                        translation = null;
+                    }
+                    else if (this.translations[translation] === undefined) {
                         // TODO warn?
                         translation = null;
                     }
@@ -1257,7 +1061,7 @@ class BossBrain {
                 }
                 else if (match[2] !== undefined) {
                     // ACS translation code
-                    translation = TRANSLATION_ACS_INDEX[match[2]];
+                    translation = ZDOOM_ACS_TRANSLATION_CODES[match[2]];
                     continue;
                 }
                 else if (match[3] !== undefined) {
@@ -1394,7 +1198,7 @@ class BossBrain {
             let py = line_stat.y0 + (glyph.dy || 0);
             if (draw.translation) {
                 // Argh, we need to translate
-                let transdef = ZDOOM_TRANSLATIONS[draw.translation];
+                let transdef = this.translations[draw.translation];
                 let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
                 // First draw the character to the dummy canvas -- note we can't
                 // draw it to this canvas and then alter it, because negative
