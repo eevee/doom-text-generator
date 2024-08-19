@@ -76,6 +76,10 @@ function random_choice(list) {
     return list[Math.floor(Math.random() * list.length)];
 }
 
+function get_lightness(color) {
+    return color[0] * 0.299 + color[1] * 0.587 + color[2] * 0.114;
+}
+
 function translation_to_gradient(spans) {
     let parts = ["linear-gradient(to right"];
     for (let span of spans) {
@@ -235,9 +239,27 @@ function parse_fon2(buf) {
     }
 
     let palette = [];
+    // Grab the lightness range while we're in here.
+    // I *think* it's taken from the palette and not from the set of colors that are actually
+    // used?  Hopefully there's no difference in most cases anyway??
+    let min_lightness = 255;
+    let max_lightness = 0;
     for (let i = 0; i < palette_size + 1; i++) {
-        palette.push([data.getUint8(p), data.getUint8(p + 1), data.getUint8(p + 2)]);
+        let color = [data.getUint8(p), data.getUint8(p + 1), data.getUint8(p + 2)];
         p += 3;
+        palette.push(color);
+
+        // Do NOT do this for the first or last colors, which are transparent and dummy
+        if (i !== 0 && i !== palette_size) {
+            let lightness = get_lightness(color);
+            min_lightness = Math.min(min_lightness, lightness);
+            max_lightness = Math.max(max_lightness, lightness);
+        }
+    }
+    if (max_lightness < min_lightness) {
+        // Well this should definitely not happen
+        min_lightness = 0;
+        max_lightness = 255;
     }
 
     let glyphs = {};
@@ -280,6 +302,7 @@ function parse_fon2(buf) {
         glyphs: glyphs,
         line_height: cell_height,
         kerning: kerning_info,
+        lightness_range: [min_lightness, max_lightness],
     };
 }
 
@@ -342,6 +365,16 @@ class BuiltinFont {
 }
 
 
+function zdoom_estimate_space_width(partial_font) {
+    // This really is what ZDoom does, don't look at me
+    if ("N" in partial_font.glyphs) {
+        return Math.floor(partial_font.glyphs["N"].width / 2 + 0.5);
+    }
+    else {
+        return 4;
+    }
+}
+
 // Font loaded from a user-supplied WAD
 class WADFont {
     constructor(glyphs, meta = {}) {
@@ -361,13 +394,7 @@ class WADFont {
             }
         }
         if (! uniform_width) {
-            // This is what ZDoom does, don't look at me
-            if ("N" in glyphs) {
-                this.space_width = Math.floor(glyphs["N"].width / 2 + 0.5);
-            }
-            else {
-                this.space_width = 4;
-            }
+            this.space_width = zdoom_estimate_space_width(this);
         }
 
         // Font kerning mostly exists for the big Doom menu fonts; for custom fonts you can use
@@ -400,8 +427,8 @@ class FON2Font {
         this.glyphs = ret.glyphs;
         this.line_height = ret.line_height;
         this.kerning = ret.kerning ?? 0;
-        this.space_width = 4;  // XXX how is this not part of the font???
-        this.lightness_range = [0, 255];  // FIXME can get this from the palette easily
+        this.space_width = zdoom_estimate_space_width(this);
+        this.lightness_range = ret.lightness_range;
 
         this.name = meta.name ?? "";  // XXX ???
         this.creator = meta.creator ?? "";  // XXX ???
@@ -1385,7 +1412,7 @@ class BossBrain {
                         continue;
 
                     // FIXME these are...  part of the font definition i guess?
-                    let lightness = (pixels[i + 0] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+                    let lightness = get_lightness([pixels[i + 0], pixels[i + 1], pixels[i + 2]]);
                     lightness = (lightness - font.lightness_range[0]) / (font.lightness_range[1] - font.lightness_range[0]);
                     let l = Math.max(0, Math.min(255, Math.floor(lightness * 256)));
                     //console.log(pixels[i], pixels[i+1], pixels[i+2], lightness, l);
