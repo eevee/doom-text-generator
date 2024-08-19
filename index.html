@@ -24,6 +24,9 @@
     input[type=checkbox] {
         margin: 0 3px;
     }
+    input[type=range] {
+        min-width: 4em;
+    }
     input:disabled {
         opacity: 0.5;
     }
@@ -61,6 +64,11 @@
         margin: 0 auto;
         image-rendering: crisp-edges;
     }
+    body.outlined #canvas-wrapper canvas {
+        /* Combine outline + box-shadow to make an alternating outline */
+        outline: 1px dashed #444;
+        box-shadow: 0 0 0 1px #ccc;
+    }
     form {
         flex: 1 1 auto;
         border-top: 1px solid #444;
@@ -87,9 +95,13 @@
     section > h2 {
         font-size: 1.25em;
         margin: 1em 0 0.5em;
-        border-bottom: 1px solid #ccc;
+        padding: 0.25rem 0.5em;
+        border: 2px solid #ccc;
+        border-width: 0 2px;
+        border-radius: 0.25em;
+        background: #e8e8e8;
         font-weight: normal;
-        color: #222;
+        color: #666;
     }
     #section-text {
         grid-area: text;
@@ -194,7 +206,7 @@
         flex: 1 auto;
     }
     .range-with-label output {
-        flex: 0 0 2em;
+        flex: 0 0 3em;
         margin: 0 0.5em;
         text-align: right;
     }
@@ -405,6 +417,10 @@
             <textarea name="text"></textarea>
             <div class="-buttons">
                 <button id="button-randomize">🎲 Randomize</button>
+                <!--
+                TODO
+                <button id="button-randomize-more">🎲 Chaos Roll</button>
+                -->
                 <button id="button-copy">📋 Copy</button>
                 <button id="button-download">💾 Download</button>
             </div>
@@ -432,6 +448,8 @@
                 <dd class="range-with-label"><input name="kerning" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></dd>
                 <dt>Line spacing</dt>
                 <dd class="range-with-label"><input name="line-spacing" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></dd>
+                <dt>Padding</dt>
+                <dd class="range-with-label"><input name="padding" type="range" min="0" max="32" step="1" value="0"> <output>0</output></dd>
             </dl>
 
             <h2>Alignment</h2>
@@ -443,6 +461,7 @@
 
             <h2>Page</h2>
             <ul class="radioset">
+                <li><label><input name="outline" type="checkbox"> Show image boundary</label></li>
                 <li><label><input name="bg" type="checkbox"> Background color: <input name="bgcolor" type="color" value="#ffffff" disabled></label></li>
                 <li><label>
                     <input name="wrap" type="checkbox">
@@ -494,7 +513,7 @@
         <section id="section-color">
             <h2>Color</h2>
             <ul class="radioset translations">
-                <li><label><input name="translation" type="radio" value="" checked> Default</label></li>
+                <li><label><input name="translation" type="radio" value="" checked> Original colors</label></li>
             </ul>
             <p>These are ZDoom's standard color translations and use the ZDoom recoloring algorithm.  Results are unlikely to be within the Doom palette.</p>
             <p>The buttons on the right will set the background color.</p>

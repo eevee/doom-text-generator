@@ -583,6 +583,17 @@ class BossBrain {
         });
         update_line_spacing_label();
 
+        // Padding
+        let padding_ctl = this.form.elements['padding'];
+        function update_padding_label() {
+            padding_ctl.parentNode.querySelector('output').textContent = String(padding_ctl.value);
+        }
+        padding_ctl.addEventListener('input', ev => {
+            update_padding_label();
+            this.redraw_current_text();
+        });
+        update_padding_label();
+
         // Alignment
         let alignment_list = this.form.querySelector('ul.alignment');
         alignment_list.addEventListener('change', redraw_handler);
@@ -590,6 +601,11 @@ class BossBrain {
         // Syntax
         let syntax_list = this.form.querySelector('ul.syntax');
         syntax_list.addEventListener('change', redraw_handler);
+
+        // Outline
+        this.form.elements['outline'].addEventListener('change', ev => {
+            document.body.classList.toggle('outlined', ev.target.checked);
+        });
 
         // Background
         // FIXME i suspect if you edit the fragment live, the bgcolor control will not update, sigh
@@ -789,7 +805,10 @@ class BossBrain {
         kerning_ctl.parentNode.querySelector('output').textContent = String(kerning_ctl.value);
         let line_spacing_ctl = this.form.elements['line-spacing'];
         line_spacing_ctl.parentNode.querySelector('output').textContent = String(line_spacing_ctl.value);
+        let padding_ctl = this.form.elements['padding'];
+        padding_ctl.parentNode.querySelector('output').textContent = String(padding_ctl.value);
 
+        document.body.classList.toggle('outlined', this.form.elements['outline'].checked);
         document.body.classList.toggle('solo', this.form.elements['solo'].checked);
 
         for (let name of this.custom_translations) {
@@ -1175,6 +1194,7 @@ class BossBrain {
             scale: elements['scale'].value,
             kerning: parseInt(elements['kerning'].value, 10),
             line_spacing: parseInt(elements['line-spacing'].value, 10),
+            padding: parseInt(elements['padding'].value, 10),
             wrap: wrap,
             default_font: elements['font'].value,
             default_translation: elements['translation'].value || null,
@@ -1194,6 +1214,7 @@ class BossBrain {
         let scale = args.scale || 1;
         let kerning = args.kerning || 0;
         let line_spacing = args.line_spacing || 0;
+        let padding = Math.max(0, args.padding || 0);
         let default_font = args.default_font || 'doom-small';
         let default_translation = args.default_translation || null;
         let alignment = args.alignment;
@@ -1383,8 +1404,6 @@ class BossBrain {
         let canvas_height = y;
         this.buffer_canvas.width = canvas_width;
         this.buffer_canvas.height = canvas_height;
-        final_canvas.width = canvas_width * scale;
-        final_canvas.height = canvas_height * scale;
         if (canvas_width === 0 || canvas_height === 0) {
             return;
         }
@@ -1458,6 +1477,8 @@ class BossBrain {
         }
 
         // Finally, scale up the offscreen canvas
+        final_canvas.width = (canvas_width + 2 * padding) * scale;
+        final_canvas.height = (canvas_height + 2 * padding) * scale;
         let final_ctx = final_canvas.getContext('2d');
         let aabb = [0, 0, final_canvas.width, final_canvas.height];
         if (background) {
@@ -1468,7 +1489,10 @@ class BossBrain {
             final_ctx.clearRect(...aabb);
         }
         final_ctx.imageSmoothingEnabled = false;
-        final_ctx.drawImage(this.buffer_canvas, ...aabb);
+        final_ctx.drawImage(
+            this.buffer_canvas,
+            padding * scale, padding * scale,
+            canvas_width * scale, canvas_height * scale);
 
         return final_canvas;
     }
