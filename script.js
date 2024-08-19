@@ -2,12 +2,11 @@
 // get the extended characters from gzdoom
 // more fonts?  some from popular megawads maybe?  hacx?  freedoom?
 // someone asked for build + quake fonts
-// .. also these https://forum.zdoom.org/viewtopic.php?f=37&t=33409&sid=d5022aefc120e44df307204f243589be
 // someday, bbcode...
 // better missing char handling
 // refreshing loses the selected translation
 // aspect ratio correction?
-// metrics twiddles -- customize spacing, space width.  PADDING.
+// customize space width???
 // custom translations...
 // - real gradient editor??
 // - parse TEXTCOLO
@@ -19,7 +18,6 @@
 // - preconvert default translation?
 // allow using different fonts in one message (whoof)
 // fix accents and other uses of too-high letters
-// word wrap includes spaces oops
 // why does "doom menu" have massive descender space whereas "doom menu small caps" does not
 //
 // TODO nice to do while i'm here:
@@ -477,7 +475,7 @@ class BossBrain {
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
             // TODO pop open a lil info overlay for each of these
             let name_canvas = this.render_text({
-                text: fontdef.meta.name.replace(/—/, "-").replace(/ font\b/, ""),
+                text: fontdef.meta.name,
                 default_font: ident,
                 scale: 2,
                 canvas: null,
@@ -847,7 +845,7 @@ class BossBrain {
             if (result.status === 'fulfilled') {
                 for (let ident of result.value) {
                     let name_canvas = this.render_text({
-                        text: this.fonts[ident].name,
+                        text: this.fonts[ident].name.replace(/—/, "-"),
                         default_font: ident,
                         scale: 2,
                         canvas: null,

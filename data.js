@@ -66,7 +66,7 @@ export const DOOM_FONTS = {
       "_": "8x3+54+56@0,4",
       "|": "4x7+63+56"
     },
-    "image": "doom-small.png",
+    "image": "fonts/doom-small.png",
     "space_width": 4,
     "line_height": 8,
     "kerning": 0,
@@ -75,7 +75,7 @@ export const DOOM_FONTS = {
       76.24499999999999
     ],
     "meta": {
-      "name": "Doom — messages",
+      "name": "Doom Messages",
       "creator": "id software",
       "license": "commercial",
       "source": "STCFN___ lumps from doom2.wad"
@@ -464,7 +464,7 @@ export const DOOM_FONTS = {
       "\u201d": "12x5+476+399",
       "\u201e": "12x5+504+399@0,12"
     },
-    "image": "doom-bigupper.png",
+    "image": "fonts/doom-bigupper.png",
     "space_width": 8,
     "line_height": 21,
     "kerning": -1,
@@ -473,7 +473,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Doom — menu",
+      "name": "Doom Menu",
       "creator": "id software + GZDoom",
       "license": "derivative",
       "source": "GZDoom's BIGUPPER, reverse engineered and extended from Doom's menu and title graphics",
@@ -574,7 +574,7 @@ export const DOOM_FONTS = {
       "\"": "11x8+104+112",
       "'": "6x7+116+112"
     },
-    "image": "doom-nightmare.png",
+    "image": "fonts/doom-nightmare.png",
     "space_width": 8,
     "line_height": 19,
     "kerning": -1,
@@ -583,7 +583,7 @@ export const DOOM_FONTS = {
       76.24499999999999
     ],
     "meta": {
-      "name": "Doom — nightmare",
+      "name": "Doom Nightmare",
       "creator": "id software + Amuscaria + Eevee",
       "creator_url": "https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)",
       "license": "derivative",
@@ -653,7 +653,7 @@ export const DOOM_FONTS = {
       "Z": "9x7+10+80@0,2",
       "[": "7x3+20+80@0,6"
     },
-    "image": "heretic-small.png",
+    "image": "fonts/heretic-small.png",
     "space_width": 5,
     "line_height": 10,
     "kerning": 0,
@@ -662,7 +662,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Heretic/Hexen — messages",
+      "name": "Heretic Messages",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "Raven Software",
       "license": "commercial",
@@ -730,7 +730,7 @@ export const DOOM_FONTS = {
       "Y": "11x16+0+160@0,5",
       "Z": "11x12+18+160@0,5"
     },
-    "image": "heretic-menu.png",
+    "image": "fonts/heretic-menu.png",
     "space_width": 7,
     "line_height": 20,
     "kerning": 0,
@@ -739,7 +739,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Heretic/Hexen — menu",
+      "name": "Heretic Menu",
       "desc": "Used for main menu options.  (Hexen's font is identical, but colored red.)",
       "creator": "Raven Software",
       "license": "commercial",
@@ -813,7 +813,7 @@ export const DOOM_FONTS = {
       "_": "8x3+60+56@0,4",
       "|": "4x7+70+56"
     },
-    "image": "chex-small.png",
+    "image": "fonts/chex-small.png",
     "space_width": 4,
     "line_height": 8,
     "kerning": 0,
@@ -822,7 +822,7 @@ export const DOOM_FONTS = {
       159.832
     ],
     "meta": {
-      "name": "Chex Quest — messages",
+      "name": "Chex Quest Messages",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "unknown",
       "license": "unknown",
@@ -895,7 +895,7 @@ export const DOOM_FONTS = {
       "^": "4x3+45+64@1,1",
       "_": "5x2+54+64@0,4"
     },
-    "image": "strife-small.png",
+    "image": "fonts/strife-small.png",
     "space_width": 4,
     "line_height": 8,
     "kerning": 0,
@@ -904,7 +904,7 @@ export const DOOM_FONTS = {
       192.926
     ],
     "meta": {
-      "name": "Strife — messages",
+      "name": "Strife Micro",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "unknown",
       "license": "commercial",
@@ -977,7 +977,7 @@ export const DOOM_FONTS = {
       "^": "7x5+60+64",
       "_": "8x3+72+64@0,4"
     },
-    "image": "strife-small2.png",
+    "image": "fonts/strife-small2.png",
     "space_width": 5,
     "line_height": 8,
     "kerning": 0,
@@ -986,7 +986,7 @@ export const DOOM_FONTS = {
       179.98999999999998
     ],
     "meta": {
-      "name": "Strife — messages alt",
+      "name": "Strife Messages",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "unknown",
       "license": "unknown",
@@ -1112,7 +1112,7 @@ export const DOOM_FONTS = {
       "\u201d": "13x8+108+253",
       "\u201e": "13x8+135+253@0,13"
     },
-    "image": "strife-bigfont.png",
+    "image": "fonts/strife-bigfont.png",
     "space_width": 9,
     "line_height": 23,
     "kerning": -1,
@@ -1121,7 +1121,7 @@ export const DOOM_FONTS = {
       168.832
     ],
     "meta": {
-      "name": "Strife — menu",
+      "name": "Strife Menu",
       "desc": "Used for main menu options.",
       "creator": "unknown",
       "license": "derivative",
@@ -1387,7 +1387,7 @@ export const DOOM_FONTS = {
       "\u00fe": "8x8+0+2032",
       "\u00ff": "8x8+0+2040"
     },
-    "image": "zdoom-console.png",
+    "image": "fonts/zdoom-console.png",
     "space_width": 8,
     "line_height": 8,
     "lightness_range": [
@@ -1395,12 +1395,73 @@ export const DOOM_FONTS = {
       255
     ],
     "meta": {
-      "name": "ZDoom — console",
+      "name": "ZDoom Console",
       "creator": "unknown",
       "license": "unknown",
       "source": "confont.lmp from ZDoom"
     }
-  }
+  },
+  "jimmy-statblws": {
+    "type": "fon2",
+    "src": "fonts/STATBLWS.fon2",
+    "meta": {
+      "name": "Status Report Big",
+      "creator": "id software + James Paddock",
+      "license": "commercial",
+      "source": "extension of Doom's status bar font"
+    }
+  },
+  "doom-doom93": {
+    "type": "fon2",
+    "src": "fonts/DOOM93_2.fon2",
+    "meta": {
+      "name": "Doom 93",
+      "creator": "id software + James Paddock",
+      "license": "commercial",
+      "source": "unused Doom font from 1993, posted to Twitter by Romero and touched up by James Paddock"
+    }
+  },
+  "doom-alpha": {
+    "type": "fon2",
+    "src": "fonts/04FONTOK.fon2",
+    "meta": {
+      "name": "Nought Point Four",
+      "creator": "id software + James Paddock",
+      "license": "commercial",
+      "source": "extension of a font used in the Doom v0.4 alpha"
+    }
+  },
+  "jimmy-jenocide-big": {
+    "type": "fon2",
+    "src": "fonts/JENOBIG.fon2",
+    "meta": {
+      "name": "Jenocide Big",
+      "creator": "ShyFonts + James Paddock",
+      "license": "dubious",
+      "source": "derived from Archery Black by ShyFonts (now defunct)"
+    }
+  },
+  "jimmy-zd2012-big": {
+    "type": "fon2",
+    "src": "fonts/ZD2012.fon2",
+    "meta": {
+      "name": "ZDoom 2012 Big",
+      "creator": "James Paddock",
+      "license": "freeware?",
+      "source": "inspired by ZDoom logo but otherwise original work"
+    }
+  },
+  "jimmy-tormentstein": {
+    "type": "fon2",
+    "src": "fonts/TORMENTK.fon2",
+    "meta": {
+      "name": "Tormentstein 3D",
+      "desc": "Based on the menu font from Wolfenstein 3D.",
+      "creator": "id software + James Paddock",
+      "license": "freeware?",
+      "source": "inspired by ZDoom logo but otherwise original work"
+    }
+  },
 };
 
 
