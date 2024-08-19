@@ -1259,7 +1259,7 @@ class BossBrain {
 
         // Resize the canvas to fit snugly
         let canvas_width = Math.max(...Object.values(line_stats).map(line_stat => line_stat.width));
-        let canvas_height = y - line_spacing;
+        let canvas_height = y;
         this.buffer_canvas.width = canvas_width;
         this.buffer_canvas.height = canvas_height;
         final_canvas.width = canvas_width * scale;
