@@ -268,7 +268,7 @@ function parse_fon2(buf) {
             px[i * 4 + 3] = 255;
         }
         ctx.putImageData(imgdata, 0, 0);
-        
+
         glyphs[String.fromCharCode(n)] = {
             width: width,
             height: cell_height,
@@ -344,7 +344,7 @@ class BuiltinFont {
 
 // Font loaded from a user-supplied WAD
 class WADFont {
-    constructor(glyphs) {
+    constructor(glyphs, meta = {}) {
         this.glyphs = glyphs;
 
         // Hurriedly invent some metrics
@@ -375,7 +375,7 @@ class WADFont {
         this.kerning = 0;
         this.lightness_range = [0, 255];  // TODO can just get from the palette?  or do i need the actual lightness of the colors that get used?  urgh
 
-        this.name = "";  // XXX ???
+        this.name = meta.name ?? "";  // XXX ???
         this.creator = "";  // XXX ???
         this.license = "";  // XXX ???
         this.source = "";  // XXX ???
@@ -515,9 +515,7 @@ class BossBrain {
 
         let wad_ctl = this.form.elements['wad'];
         wad_ctl.addEventListener('change', ev => {
-            for (let file of ev.target.files) {
-                this.load_fonts_from_wad(file);
-            }
+            this.load_fonts_from_files(ev.target.files);
         });
         // TODO support drag and drop, uggh
         document.querySelector('#button-upload').addEventListener('click', ev => {
@@ -783,50 +781,165 @@ class BossBrain {
         history.replaceState(null, document.title, '#' + new URLSearchParams(data));
     }
 
-    async load_fonts_from_wad(wadfile) {
+    async load_fonts_from_files(files) {
         let output_el = document.querySelector('#wad-uploader output');
         output_el.classList.remove('--success', '--failure');
         output_el.textContent = 'Beep boop, computing...';
         output_el.offsetWidth;
 
-        let lumps;
-        try {
-            lumps = await parse_wad(wadfile);
+        let promises = [];
+        for (let file of files) {
+            promises.push(this.load_fonts_from_file(file));
         }
-        catch (e) {
-            output_el.classList.add('--failure');
-            output_el.textContent = String(e);
-            return;
+
+        let results = await Promise.allSettled(promises);
+        output_el.textContent = '';
+        let first_font = true;
+        for (let [i, result] of results.entries()) {
+            let file = files[i];
+            if (result.status === 'fulfilled') {
+                for (let ident of result.value) {
+                    let name_canvas = this.render_text({
+                        text: this.fonts[ident].name,
+                        default_font: ident,
+                        scale: 2,
+                        canvas: null,
+                    });
+                    let li = mk('li',
+                        mk('label',
+                            mk('input', {type: 'radio', name: 'font', value: ident}),
+                            " ",
+                            name_canvas,
+                        ),
+                    );
+                    this.font_list_el.append(li);
+
+                    // If this is the first font we found, go ahead and select it and redraw.
+                    // This also speeds up getting back where you were after refreshing
+                    if (first_font) {
+                        first_font = false;
+
+                        this.form.elements['font'].value = ident;
+                        // Fire a 'change' event so state gets tidied up
+                        // FIXME uh this doesn't seem to update the .selected though
+                        let ev = new Event('change');
+                        for (let radio of this.form.elements['font']) {
+                            if (radio.checked) {
+                                radio.dispatchEvent(ev);
+                                break;
+                            }
+                        }
+                        this.redraw_current_text();
+                    }
+                }
+
+                let font_msg;
+                if (result.value.length === 1) {
+                    font_msg = "a font";
+                }
+                else {
+                    font_msg = `${result.value.length} fonts`;
+                }
+                output_el.append(mk('p.-success', `${file.name} — Found ${font_msg}`));
+            }
+            else {
+                output_el.append(mk('p.-failure', `${file.name} — ${result.reason}`));
+            }
         }
-        // Look for fonts by looking for lumps of the form NAMExxx, where xxx is a range of
-        // numbers spanning at least 65 to 90 (A-Z) or 97 to 122 (a-z)
+    }
+
+    async load_fonts_from_file(file) {
+        let magic = string_from_buffer_ascii(await file.slice(0, 4).arrayBuffer());
+        let found_fonts = [];
+
         let lump_index = {};
-        let possible_font_prefixes = [];
-        for (let lump of lumps) {
-            lump_index[lump.name] = lump;
-            if (lump.name.endsWith('65')) {
-                let numlen = 2;
-                if (lump.name.endsWith('0065')) {
-                    numlen = 4;
+        let possible_font_prefixes = new Set;
+        if (magic === 'IWAD' || magic === 'PWAD') {
+            let lumps = await parse_wad(file);
+            // Look for vanilla-style fonts (lots of individual graphics) by looking for lumps of
+            // the form NAMExxx, where xxx is a range of numbers spanning at least 65 to 90 (A-Z)
+            // or 97 to 122 (a-z)
+            for (let lump of lumps) {
+                lump_index[lump.name] = lump;
+                if (lump.name.endsWith('65') || lump.name.endsWith('97')) {
+                    possible_font_prefixes.add(
+                        lump.name.substring(0, lump.name.length - 2).replace(/0+$/, ''));
                 }
-                else if (lump.name.endsWith('065')) {
-                    numlen = 3;
+
+                // Unfortunately to find FON2 files we have to peek at the magic number of every
+                // single lump...
+                let lump_magic = string_from_buffer_ascii(
+                    await file.slice(lump.offset, lump.offset + 4).arrayBuffer());
+                if (lump_magic === 'FON2') {
+                    // We can just load this now I guess?
+                    let ident = `${file.name}:${lump.name}`;
+                    let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
+                    let font = new FON2Font(buf, {
+                        name: `${file.name} — ${lump.name} FON2 font`,
+                    });
+                    this.fonts[ident] = font;
+                    found_fonts.push(ident);
                 }
-                possible_font_prefixes.push([lump.name, numlen]);
             }
-            else if (lump.name.endsWith('097')) {
-                let numlen = 3;
-                if (lump.name.endsWith('0097')) {
-                    numlen = 4;
+        }
+        else if (magic === 'PK\x03\x04') {
+            if (! window.fflate)
+                throw new Error("Can't read PK3s because the fflate library failed to load");
+
+            // I've been unable to find a JS zip library that will let me peek at the first few
+            // bytes of each entry without decompressing every goddamn one, so, fuck it I
+            // guess, it's your machine not mine, let's just inflate it big and round
+            let resolve, reject;
+            let promise = new Promise((res, rej) => {
+                resolve = res;
+                reject = rej;
+            });
+            fflate.unzip(new Uint8Array(await file.arrayBuffer()), (err, data) => {
+                if (err) {
+                    reject(err);
                 }
-                possible_font_prefixes.push([lump.name, numlen]);
+                else {
+                    resolve(data);
+                }
+            });
+
+            let contents = await promise;
+
+            // PK3s might contain any of:
+            // - Single-lump font formats (e.g. FON2)
+            // - Unicode fonts, a directory /fonts/foo containing images (TODO)
+            // - A big ol' pile of Doom graphics used implicitly (TODO ugh)
+            // - Something vastly more complicated using FONTDEFS (TODO TODO TODO)
+            for (let [path, data] of Object.entries(contents)) {
+                let lump_magic = string_from_buffer_ascii(data, 0, 4);
+                if (lump_magic === 'FON2') {
+                    let ident = `${file.name}:${path}`;
+                    let font = new FON2Font(data.buffer, {
+                        name: `${file.name} — ${path} FON2 font`,
+                    });
+                    this.fonts[ident] = font;
+                    found_fonts.push(ident);
+                }
             }
+        }
+        else if (magic === 'FON2') {
+            let ident = file.name;
+            let font = new FON2Font(await file.arrayBuffer(), {
+                name: file.name.replace(/[.][^.]+$/, ''),
+            });
+            this.fonts[ident] = font;
+            return [ident];
+        }
+        else {
+            throw new Error("Unrecognized file type");
         }
 
         if (possible_font_prefixes.length === 0) {
-            output_el.classList.add('--failure');
-            output_el.textContent = "Sorry! Couldn't find anything in this WAD that looks like a font.";
-            return;
+            if (found_fonts.length > 0) {
+                return found_fonts;
+            }
+
+            throw new Error("Couldn't find any lumps that look like fonts");
         }
 
         // Extract the palette first, if any
@@ -835,7 +948,7 @@ class BossBrain {
             let lump = lump_index['PLAYPAL'];
             if (lump.size >= 768) {
                 palette = [];
-                let buf = await wadfile.slice(lump.offset, lump.offset + 768).arrayBuffer();
+                let buf = await file.slice(lump.offset, lump.offset + 768).arrayBuffer();
                 let bytes = new Uint8Array(buf);
                 for (let i = 0; i < 256; i++) {
                     palette.push([bytes[i*3], bytes[i*3 + 1], bytes[i*3 + 2]]);
@@ -848,13 +961,9 @@ class BossBrain {
 			palette = DOOM2_PALETTE;
         }
 
-        let found_fonts = 0;
-        for (let [name, suffixlen] of possible_font_prefixes) {
-            let prefix = name.substring(0, name.length - suffixlen);
-            let n0 = parseInt(name.substring(name.length - suffixlen), 10);
-
+        for (let prefix of possible_font_prefixes) {
             let possible_glyphs = new Map;
-            for (let lump of lumps) {
+            for (let lump of Object.values(lump_index)) {
                 if (lump.name.startsWith(prefix)) {
                     let num = parseInt(lump.name.substring(prefix.length), 10);
                     if (num !== num)
@@ -863,14 +972,21 @@ class BossBrain {
                 }
             }
 
-            let found_all = true;
-            for (let n = n0 + 1; n < n0 + 26; n++) {
+            let found_lower = true;
+            let found_upper = true;
+            for (let n = 65; n < 91; n++) {
                 if (! possible_glyphs.has(n)) {
-                    found_all = false;
+                    found_upper = false;
                     break;
                 }
             }
-            if (! found_all) {
+            for (let n = 97; n < 123; n++) {
+                if (! possible_glyphs.has(n)) {
+                    found_lower = false;
+                    break;
+                }
+            }
+            if (! found_upper && ! found_lower) {
                 console.log("not a font (no full alphabet):", prefix);
                 continue;
             }
@@ -893,7 +1009,7 @@ class BossBrain {
             console.log("looks like we have a font:", prefix);
             let glyphs = {};
             for (let [n, lump] of possible_glyphs) {
-                let buf = await wadfile.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
+                let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
                 let canvas = parse_doom_graphic(buf, palette);
                 glyphs[String.fromCharCode(n)] = {
                     width: canvas.width,
@@ -902,52 +1018,17 @@ class BossBrain {
                 };
             }
 
-            let ident = wadfile.name + ":" + prefix;
-            this.fonts[ident] = new WADFont(glyphs);
-
-            let name_canvas = this.render_text({
-                text: "Hello, world!",
-                default_font: ident,
-                scale: 2,
-                canvas: null,
+            let ident = file.name + ":" + prefix;
+            this.fonts[ident] = new WADFont(glyphs, {
+                name: `${file.name} — ${prefix} lumps font`,
             });
-            let li = mk('li',
-                mk('label',
-                    mk('input', {type: 'radio', name: 'font', value: ident}),
-                    " ",
-                    `${wadfile.name} — ${prefix}`,
-                    mk('br'),
-                    name_canvas,
-                ),
-            );
-            this.font_list_el.append(li);
-            found_fonts += 1;
-
-            // If this is the first font we found, go ahead and select it and redraw.
-            // This also speeds up getting back where you were after refreshing
-            if (found_fonts === 1) {
-                this.form.elements['font'].value = ident;
-                // Fire a 'change' event so state gets tidied up
-                // FIXME uh this doesn't seem to update the .selected though
-                let ev = new Event('change');
-                for (let radio of this.form.elements['font']) {
-                    if (radio.checked) {
-                        radio.dispatchEvent(ev);
-                        break;
-                    }
-                }
-                this.redraw_current_text();
-            }
+            found_fonts.push(ident);
         }
 
-        if (found_fonts === 0) {
-            output_el.classList.add('--failure');
-            output_el.textContent = "Sorry! Couldn't find anything in this WAD that looks like a font.";
-            return;
-        }
+        if (found_fonts.length === 0)
+            throw new Error("Couldn't find any lumps that look like fonts");
 
-        output_el.classList.add('--success');
-        output_el.textContent = `Found ${found_fonts === 1 ? "a font" : String(found_fonts) + " fonts"}, you're all set!`;
+        return found_fonts;
     }
 
     // Roll a random message and color

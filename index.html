@@ -5,6 +5,7 @@
 <meta name="viewport" content="initial-scale=1">
 <title>Doom Text Generator</title>
 <link rel="shortcut icon" type="image/png" href="favicon.png">
+<script src="https://unpkg.com/fflate@0.8.2"></script>
 <script src="script.js" type="module"></script>
 <style>
     ul {
@@ -117,6 +118,11 @@
     }
     #section-font {
         grid-area: font;
+        /* Don't allow expanding */
+        min-width: 0;
+    }
+    #section-font li {
+        overflow-x: hidden;
     }
     #section-options {
         grid-area: options;
@@ -129,12 +135,15 @@
     }
     #wad-uploader output {
         display: block;
-        margin: 0.5em 0;
     }
-    #wad-uploader output.--success {
+    #wad-uploader output p {
+        margin: 0.5em 0;
+        font-style: normal;
+    }
+    #wad-uploader output p.-success {
         color: hsl(150, 100%, 30%);
     }
-    #wad-uploader output.--failure {
+    #wad-uploader output p.-failure {
         color: hsl(345, 100%, 40%);
     }
     #button-upload {
@@ -282,7 +291,6 @@
     }
 
     #js-font-list canvas {
-        max-width: 100%;
         vertical-align: middle;
     }
 
@@ -407,8 +415,8 @@
             <ul class="radioset fonts" id="js-font-list">
             </ul>
             <div id="wad-uploader">
-                <input type="file" name="wad">
-                <button id="button-upload">🔤 Load fonts from a WAD</button>
+                <input type="file" name="wad" multiple>
+                <button id="button-upload">🔤 Load fonts<br><small>WAD, PK3, or FON2</small></button>
                 <output></output>
             </div>
             <p>Doom and Strife use prebuilt graphics for menu items and level names, so they don't really have a "menu font" — the ones used here are from GZDoom, which reverse engineered and extended them.</p>
