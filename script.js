@@ -1228,7 +1228,8 @@ class BossBrain {
             // Note: with ACS, the color reverts at the end of every line
             let translation = default_translation;
             let x = 0;
-            let last_space_index = null;
+            let last_word_ending = null;
+            let prev_glyph_was_space = false;
             // TODO line height may need adjustment if there's a character that extends above the top of the line
             // TODO options for this?
 
@@ -1274,9 +1275,13 @@ class BossBrain {
                 }
 
                 let is_space = (ch === ' ' || ch === '\t');
-                if (is_space) {
-                    last_space_index = draws.length;
+                if (is_space && ! prev_glyph_was_space) {
+                    last_word_ending = {
+                        next_index: draws.length,
+                        x: x,
+                    };
                 }
+                prev_glyph_was_space = is_space;
 
                 if (x > 0) {
                     x += (font.kerning || 0);
@@ -1318,15 +1323,14 @@ class BossBrain {
 
                 x += glyph.width;
 
-                if (! is_space && wrap !== null && x > wrap && last_space_index !== null) {
+                if (! is_space && wrap !== null && x > wrap && last_word_ending !== null) {
                     // We overshot the wrap limit!  Backtrack one word and fix this by breaking the
-                    // line.  (Note that if we never saw a space, this is just a long word and
-                    // there's nothing we can do about it.)
-                    let space = draws[last_space_index];
+                    // line.  (If we haven't seen the end of a word yet, this is just a really
+                    // long word and there's nothing we can do about it.)
 
                     // End the current line
                     line_stats.push({
-                        width: space.x,
+                        width: last_word_ending.x,
                         x0: 0,  // updated below
                         y0: y,
                     });
@@ -1335,9 +1339,9 @@ class BossBrain {
 
                     // Update all the rest of the characters in the line.  Note that if there's no
                     // space glyph, the "space" we saw is really just the next non-space character.
-                    let i0 = last_space_index;
-                    if (space.is_space) {
-                        i0 += 1;
+                    let i0 = last_word_ending.next_index;
+                    while (i0 < draws.length && draws[i0].is_space) {
+                        draws.splice(i0, 1);
                     }
                     let dx = draws[i0].x;
                     for (let i = i0; i < draws.length; i++) {
@@ -1347,7 +1351,7 @@ class BossBrain {
 
                     // Update our current x position, discarding any kerning, and continue
                     x -= dx;
-                    last_space_index = null;
+                    last_word_ending = null;
                 }
             }
 
