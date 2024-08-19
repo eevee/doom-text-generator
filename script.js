@@ -439,6 +439,7 @@ class BossBrain {
                 promise = BuiltinFont.from_builtin(fontdef);
             }
             promises.push(promise.then(font => {
+                font.is_builtin = true;
                 this.fonts[fontname] = font;
             }));
         }
@@ -774,7 +775,7 @@ class BossBrain {
         let data = new FormData(this.form);
         data.delete('wad');  // file upload control does not have a useful value
         let font = this.fonts[data.get('font')];
-        if (! (font instanceof BuiltinFont)) {
+        if (! font.is_builtin) {
             // The URL can't handle custom fonts, so fall back to the default
             data.set('font', 'doom-small');
         }
