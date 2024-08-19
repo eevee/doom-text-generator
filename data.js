@@ -75,7 +75,7 @@ export const DOOM_FONTS = {
       76.24499999999999
     ],
     "meta": {
-      "name": "Doom \u2014 small font",
+      "name": "Doom — small font",
       "creator": "id software",
       "license": "commercial",
       "source": "STCFN___ lumps from doom2.wad"
@@ -473,7 +473,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Doom \u2014 menu font",
+      "name": "Doom — menu font",
       "creator": "id software + GZDoom",
       "license": "derivative",
       "source": "GZDoom's BIGUPPER, reverse engineered and extended from Doom's menu and title graphics",
@@ -705,7 +705,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Doom \u2014 menu font (small caps only)",
+      "name": "Doom — menu font (small caps only)",
       "creator": "id software + GZDoom",
       "license": "derivative",
       "source": "GZDoom's BIGFONT, reverse engineered and extended from Doom's menu and title graphics",
@@ -815,7 +815,7 @@ export const DOOM_FONTS = {
       76.24499999999999
     ],
     "meta": {
-      "name": "Doom \u2014 nightmare font",
+      "name": "Doom — nightmare font",
       "creator": "id software + Amuscaria + Eevee",
       "creator_url": "https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)",
       "license": "derivative",
@@ -894,7 +894,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Heretic/Hexen \u2014 small font",
+      "name": "Heretic/Hexen — small font",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "Raven Software",
       "license": "commercial",
@@ -971,7 +971,7 @@ export const DOOM_FONTS = {
       255.0
     ],
     "meta": {
-      "name": "Heretic \u2014 menu font",
+      "name": "Heretic — menu font",
       "desc": "Used for main menu options.",
       "creator": "Raven Software",
       "license": "commercial",
@@ -1048,7 +1048,7 @@ export const DOOM_FONTS = {
       229.99999999999997
     ],
     "meta": {
-      "name": "Hexen \u2014 menu font",
+      "name": "Hexen — menu font",
       "desc": "Used for main menu options.",
       "creator": "Raven Software",
       "license": "commercial",
@@ -1131,7 +1131,7 @@ export const DOOM_FONTS = {
       159.832
     ],
     "meta": {
-      "name": "Chex Quest \u2014 small font",
+      "name": "Chex Quest — small font",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "unknown",
       "license": "unknown",
@@ -1213,7 +1213,7 @@ export const DOOM_FONTS = {
       192.926
     ],
     "meta": {
-      "name": "Strife \u2014 small font",
+      "name": "Strife — small font",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "unknown",
       "license": "commercial",
@@ -1295,7 +1295,7 @@ export const DOOM_FONTS = {
       179.98999999999998
     ],
     "meta": {
-      "name": "Strife \u2014 alternate small font",
+      "name": "Strife — alternate small font",
       "desc": "Used for in-game messages and menu prompts.",
       "creator": "unknown",
       "license": "unknown",
@@ -1430,7 +1430,7 @@ export const DOOM_FONTS = {
       168.832
     ],
     "meta": {
-      "name": "Strife \u2014 menu font",
+      "name": "Strife — menu font",
       "desc": "Used for main menu options.",
       "creator": "unknown",
       "license": "derivative",
@@ -2020,3 +2020,69 @@ export const DOOM2_PALETTE = [
     [[0, 0, 83], [0, 0, 71], [0, 0, 59], [0, 0, 47], [0, 0, 35], [0, 0, 23], [0, 0, 11], [0, 0, 0]],
     [[255, 159, 67], [255, 231, 75], [255, 123, 255], [255, 0, 255], [207, 0, 207], [159, 0, 155], [111, 0, 107], [167, 107, 107]],
 ];
+
+
+export const SAMPLE_MESSAGES = [{
+    // Doom 1
+    font: 'doom-small',
+    messages: [
+        "please don't leave, there's more\ndemons to toast!",
+        "let's beat it -- this is turning\ninto a bloodbath!",
+        "i wouldn't leave if i were you.\ndos is much worse.",
+        "you're trying to say you like dos\nbetter than me, right?",
+        "don't leave yet -- there's a\ndemon around that corner!",
+        "ya know, next time you come in here\ni'm gonna toast ya.",
+        "go ahead and leave. see if i care.",
+    ],
+}, {
+    // Doom II
+    font: 'doom-small',
+    messages: [
+        "you want to quit?\nthen, thou hast lost an eighth!",
+        "don't go now, there's a \ndimensional shambler waiting\nat the dos prompt!",
+        "get outta here and go back\nto your boring programs.",
+        "if i were your boss, i'd \n deathmatch ya in a minute!",
+        "look, bud. you leave now\nand you forfeit your body count!",
+        "just leave. when you come\nback, i'll be waiting with a bat.",
+        "you're lucky i don't smack\nyou for thinking about leaving.",
+    ],
+}, {
+    // Strife
+    font: 'strife-small2',
+    messages: [
+        "where are you going?!\nwhat about the rebellion?",
+        "carnage interruptus...\nwhat a tease!",
+        "but you're the hope\n-- my only chance!!",
+        "nobody walks out on blackbird.",
+        "i thought you were different...",
+        "fine! just kill and run!",
+        "you can quit...\nbut you can't hide...",
+        "whaaa, what's the matter?\nmommy says dinnertime?",
+    ],
+}, {
+    // Chex Quest
+    font: 'chex-small',
+    messages: [
+        "Don't quit now, there are still\nflemoids on the loose!",
+        "Don't give up -- the flemoids will\nget the upper hand!",
+        "Don't leave now.\nWe need your help!",
+        "I hope you're just taking a\nbreak for Chex(R) party mix.",
+        "Don't quit now!\nWe need your help!",
+        "Don't abandon the\nIntergalactic Federation of Cereals!",
+        "The real Chex(R) Warrior\nwouldn't give up so fast!",
+    ],
+}, {
+    // Pangrams
+    font: null,  // random
+    messages: [
+        "The quick brown fox jumps over the lazy dog.",
+        "Jived fox nymph grabs quick waltz.",
+        "Glib jocks quiz nymph to vex dwarf.",
+        "Sphinx of black quartz, judge my vow.",
+        "How vexingly quick daft zebras jump!",
+        "The five boxing wizards jump quickly.",
+        "Pack my box with five dozen liquor jugs.",
+        "Jackdaws love my big sphynx of quartz.",
+        "Cwm fjord bank glyphs vext quiz.",
+    ],
+}];

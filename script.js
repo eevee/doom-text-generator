@@ -8,8 +8,10 @@
 // refreshing loses the selected translation
 // aspect ratio correction?
 // metrics twiddles -- customize spacing, space width.  PADDING.
-// custom translations!
-// force into doom (heretic, hexen, ...) palette?
+// custom translations...
+// - real gradient editor??
+// - parse TEXTCOLO
+// force into doom (heretic, hexen, ...) palette?  whoof
 // drag and drop for wads
 // pk3 support
 // little info popup about a font (source, copyright, character set...)
@@ -34,7 +36,8 @@
 "use strict";
 import {
     DOOM_FONTS, DOOM2_PALETTE,
-    ZDOOM_TRANSLATIONS, ZDOOM_ACS_TRANSLATION_CODES, rgb
+    ZDOOM_TRANSLATIONS, ZDOOM_ACS_TRANSLATION_CODES, rgb,
+    SAMPLE_MESSAGES,
 } from './data.js';
 
 function mk(tag_selector, ...children) {
@@ -167,76 +170,122 @@ function parse_doom_graphic(buf, palette) {
 
     ctx.putImageData(imgdata, 0, 0);
     return canvas;
-};
+}
+
+function* decode_rle(array) {
+    let i = 0;
+    while (i < array.length) {
+        let code = array[i];
+        i += 1;
+
+        if (code < 128) {
+            let count = code + 1;
+            for (let _ = 0; _ < count; _++) {
+                yield array[i];
+                i += 1;
+            }
+        }
+        else if (code > 128) {
+            let count = 257 - code;
+            let datum = array[i];
+            i += 1;
+            for (let _ = 0; _ < count; _++) {
+                yield datum;
+            }
+        }
+    }
+}
+
+function parse_fon2(buf) {
+    let data = new DataView(buf);
+    let magic = string_from_buffer_ascii(buf, 0, 4);
+    if (magic !== 'FON2') {
+        throw new Error("Not a FON2 file");
+    }
+
+    let cell_height = data.getUint16(4, true);
+    let n0 = data.getUint8(6);
+    let n1 = data.getUint8(7);
+    let is_constant_width = data.getUint8(8);
+    // byte 9 is "shading type", unused
+    let palette_size = data.getUint8(10);
+    let flags = data.getUint8(11);
+    let p = 12;
+
+    let kerning_info;
+    if (flags & 1) {
+        kerning_info = data.getInt16(p, true);
+        p += 2;
+    }
+
+    let widths = [];
+    if (is_constant_width) {
+        let width = data.getUint16(p, true);
+        p += 2;
+        for (let n = n0; n <= n1; n++) {
+            widths.push(width);
+        }
+    }
+    else {
+        for (let n = n0; n <= n1; n++) {
+            let width = data.getUint16(p, true);
+            p += 2;
+            widths.push(width);
+        }
+    }
+
+    let palette = [];
+    for (let i = 0; i < palette_size + 1; i++) {
+        palette.push([data.getUint8(p), data.getUint8(p + 1), data.getUint8(p + 2)]);
+        p += 3;
+    }
+
+    let glyphs = {};
+    let n = n0;
+    let glyph = null;
+    // This is a generator, and we're gonna juggle it a bit
+    let pixel_decoder = decode_rle(new Uint8Array(buf, p));
+    for (let n = n0; n <= n1; n++) {
+        let width = widths[n - n0];
+        if (width === 0)
+            continue;
+
+        // TODO probably better to like, pack these into one canvas?
+        let canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = cell_height;
+        let ctx = canvas.getContext('2d');
+        let imgdata = ctx.getImageData(0, 0, width, cell_height);
+        let px = imgdata.data;
+        for (let i = 0; i < width * cell_height; i++) {
+            let p = pixel_decoder.next().value;
+            if (p === 0 || p === palette_size)
+                continue;
+
+            px[i * 4 + 0] = palette[p][0];
+            px[i * 4 + 1] = palette[p][1];
+            px[i * 4 + 2] = palette[p][2];
+            px[i * 4 + 3] = 255;
+        }
+        ctx.putImageData(imgdata, 0, 0);
+        
+        glyphs[String.fromCharCode(n)] = {
+            width: width,
+            height: cell_height,
+            canvas: canvas,
+        };
+    }
+
+    return {
+        glyphs: glyphs,
+        line_height: cell_height,
+        kerning: kerning_info,
+    };
+}
 
 // XXX absolutely no idea what this was for
 const USE_ZDOOM_TRANSLATION_ROUNDING = true;
 
-
-const SAMPLE_MESSAGES = [{
-    // Doom 1
-    font: 'doom-small',
-    messages: [
-        "please don't leave, there's more\ndemons to toast!",
-        "let's beat it -- this is turning\ninto a bloodbath!",
-        "i wouldn't leave if i were you.\ndos is much worse.",
-        "you're trying to say you like dos\nbetter than me, right?",
-        "don't leave yet -- there's a\ndemon around that corner!",
-        "ya know, next time you come in here\ni'm gonna toast ya.",
-        "go ahead and leave. see if i care.",
-    ],
-}, {
-    // Doom II
-    font: 'doom-small',
-    messages: [
-        "you want to quit?\nthen, thou hast lost an eighth!",
-        "don't go now, there's a \ndimensional shambler waiting\nat the dos prompt!",
-        "get outta here and go back\nto your boring programs.",
-        "if i were your boss, i'd \n deathmatch ya in a minute!",
-        "look, bud. you leave now\nand you forfeit your body count!",
-        "just leave. when you come\nback, i'll be waiting with a bat.",
-        "you're lucky i don't smack\nyou for thinking about leaving.",
-    ],
-}, {
-    // Strife
-    font: 'strife-small2',
-    messages: [
-        "where are you going?!\nwhat about the rebellion?",
-        "carnage interruptus...\nwhat a tease!",
-        "but you're the hope\n-- my only chance!!",
-        "nobody walks out on blackbird.",
-        "i thought you were different...",
-        "fine! just kill and run!",
-        "you can quit...\nbut you can't hide...",
-        "whaaa, what's the matter?\nmommy says dinnertime?",
-    ],
-}, {
-    // Chex Quest
-    font: 'chex-small',
-    messages: [
-        "Don't quit now, there are still\nflemoids on the loose!",
-        "Don't give up -- the flemoids will\nget the upper hand!",
-        "Don't leave now.\nWe need your help!",
-        "I hope you're just taking a\nbreak for Chex(R) party mix.",
-        "Don't quit now!\nWe need your help!",
-        "Don't abandon the\nIntergalactic Federation of Cereals!",
-        "The real Chex(R) Warrior\nwouldn't give up so fast!",
-    ],
-}, {
-    // Pangrams
-    font: null,  // random
-    messages: [
-        "The quick brown fox jumps over the lazy dog.",
-        "Jived fox nymph grabs quick waltz.",
-        "Glib jocks quiz nymph to vex dwarf.",
-        "Sphinx of black quartz, judge my vow.",
-        "How vexingly quick daft zebras jump!",
-        "The five boxing wizards jump quickly.",
-        "Pack my box with five dozen liquor jugs.",
-        "Jackdaws love my big sphynx of quartz.",
-        "Cwm fjord bank glyphs vext quiz.",
-    ],
-}];
 
 // This size should be big enough to fit any character!
 // FIXME could just auto resize when it's too small
@@ -246,7 +295,14 @@ let trans_canvas = mk('canvas', {width: TRANS_WIDTH, height: TRANS_HEIGHT});
 
 // "Standard" fonts I scraped myself from various places and crammed into montages
 class BuiltinFont {
-    constructor(fontdef) {
+    static async from_builtin(fontdef) {
+        let montage = new Image;
+        montage.src = fontdef.image;
+        await montage.decode();
+        return new this(fontdef, montage);
+    }
+
+    constructor(fontdef, montage) {
         this.glyphs = {};
         // Decode metrics from WxH+X+Y into, like, numbers
         for (let [ch, metrics] of Object.entries(fontdef.glyphs)) {
@@ -273,9 +329,7 @@ class BuiltinFont {
         this.license = fontdef.meta.license;
         this.source = fontdef.meta.source;
 
-        this.montage = new Image;
-        this.montage.src = fontdef.image;
-        this.loading_promise = this.montage.decode();
+        this.montage = montage;
     }
 
     draw_glyph(glyph, ctx, x, y) {
@@ -333,6 +387,34 @@ class WADFont {
 }
 
 
+class FON2Font {
+    static async from_builtin(fontdef) {
+        let response = await fetch(fontdef.src);
+        let buf = await response.arrayBuffer();
+        return new this(buf, fontdef.meta);
+    }
+
+    constructor(fon2_buf, meta = {}) {
+        let ret = parse_fon2(fon2_buf);
+
+        this.glyphs = ret.glyphs;
+        this.line_height = ret.line_height;
+        this.kerning = ret.kerning ?? 0;
+        this.space_width = 4;  // XXX how is this not part of the font???
+        this.lightness_range = [0, 255];  // FIXME can get this from the palette easily
+
+        this.name = meta.name ?? "";  // XXX ???
+        this.creator = meta.creator ?? "";  // XXX ???
+        this.license = meta.license ?? "";  // XXX ???
+        this.source = meta.source ?? "";  // XXX ???
+    }
+
+    draw_glyph(glyph, ctx, x, y) {
+        ctx.drawImage(glyph.canvas, x, y);
+    }
+}
+
+
 class BossBrain {
     constructor() {
         // Visible canvas on the actual page
@@ -347,16 +429,21 @@ class BossBrain {
     }
 
     async init() {
-        let load_promises = [];
+        let promises = [];
         for (let [fontname, fontdef] of Object.entries(DOOM_FONTS)) {
-            let font = new BuiltinFont(fontdef);
-            if (font.loading_promise) {
-                load_promises.push(font.loading_promise);
+            let promise;
+            if (fontdef.type === 'fon2') {
+                promise = FON2Font.from_builtin(fontdef);
             }
-            this.fonts[fontname] = font;
+            else {
+                promise = BuiltinFont.from_builtin(fontdef);
+            }
+            promises.push(promise.then(font => {
+                this.fonts[fontname] = font;
+            }));
         }
 
-        await Promise.all(load_promises);
+        await Promise.all(promises);
 
         this.font_list_el = document.querySelector('#js-font-list');
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
