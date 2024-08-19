@@ -872,6 +872,10 @@ class BossBrain {
             }
             else {
                 output_el.append(mk('p.-failure', `${file.name} — ${result.reason}`));
+                if (result.reason.constructor !== Error) {
+                    // Oh this is a real error
+                    console.error(result.reason);
+                }
             }
         }
     }
@@ -896,6 +900,8 @@ class BossBrain {
 
                 // Unfortunately to find FON2 files we have to peek at the magic number of every
                 // single lump...
+                if (lump.size < 4)
+                    continue;
                 let lump_magic = string_from_buffer_ascii(
                     await file.slice(lump.offset, lump.offset + 4).arrayBuffer());
                 if (lump_magic === 'FON2') {
@@ -939,6 +945,8 @@ class BossBrain {
             // - A big ol' pile of Doom graphics used implicitly (TODO ugh)
             // - Something vastly more complicated using FONTDEFS (TODO TODO TODO)
             for (let [path, data] of Object.entries(contents)) {
+                if (data.byteLength < 4)
+                    continue;
                 let lump_magic = string_from_buffer_ascii(data, 0, 4);
                 if (lump_magic === 'FON2') {
                     let ident = `${file.name}:${path}`;
