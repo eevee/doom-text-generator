@@ -181,9 +181,8 @@
         font-style: italic;
     }
     ul.radioset > li {
-        position: relative;
         margin: 0.25em 0;
-        padding: 0.125em 0.5em;
+        padding: 0.125em 0.25em;
         outline-offset: -1px;
         border-radius: 3px;
     }
@@ -196,6 +195,7 @@
         box-shadow: 0 0 0 2px hsl(225, 50%, 50%);
     }
     ul.radioset > li > label {
+        position: relative;
         display: block;
         padding-left: 1.5em;
     }
@@ -317,6 +317,12 @@
 
     #js-font-list {
         white-space: nowrap;
+    }
+    #js-font-list label {
+        mask: url(dither-right.png) repeat-y right, linear-gradient(white, white);
+        /* this composites the small image on top of the solid white behind it; */
+        /* otherwise, all the parts not covered by the image would be clipped too */
+        mask-composite: exclude;
     }
     #js-font-list canvas {
         vertical-align: middle;
