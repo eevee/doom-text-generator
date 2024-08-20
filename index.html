@@ -530,8 +530,6 @@
                 <button id="button-upload">🔤 Load fonts<br><small>WAD, PK3, or FON2</small></button>
                 <output></output>
             </div>
-            <p>Doom and Strife use prebuilt graphics for menu items and level names, so they don't really have a "menu font" — the ones used here are from GZDoom, which reverse engineered and extended them.</p>
-            <p>Most fonts only handle English letters, digits, and basic punctuation.  Strife's menu font has Latin-1 and Cyrillic letters; Doom's has extended Latin, Cyrillic, and Greek.  ZDoom's console font supports all of Latin-1.</p>
         </section>
 
         <section id="section-options">
@@ -574,6 +572,8 @@
                         <option selected>extend</option>
                         <option>truncate</option>
                     </select>
+                    <br>
+                    <input name="fullwidth" type="checkbox"> Use this as the canvas width
                     -->
                 </label></li>
                 <li><label><input name="solo" type="checkbox"> Hide controls (click to reveal)</label></li>
