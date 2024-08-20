@@ -923,6 +923,19 @@ export const DOOM_FONTS = {
     }
   },
 
+  "chex-big": {
+    type: 'fon2',
+    src: 'fonts/DBIGFONT-chex.fon2',
+    meta: {
+      name: "Chex Quest Menu",
+      desc: "Font used in Chex Quest for primary menu items and level names.",
+      creator: "Digital Café",
+      license: "commercial",
+      format: "FON2",
+      source: "Extracted directly from the DBIGFONT lump in chex3.wad"
+    }
+  },
+
   "strife-small": {
     "glyphs": {
       "!": "3x6+0+0",
