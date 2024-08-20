@@ -76,9 +76,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Doom Messages",
-      "creator": "id software",
+      "desc": "Font used in classic Doom for in-game messages and menu prompts.",
+      "creator": "id Software",
       "license": "commercial",
-      "source": "STCFN___ lumps from doom2.wad"
+      "format": "lumps",
+      "source": "Extracted directly from the STCFN___ lumps in doom2.wad"
     }
   },
   "doom-bigupper": {
@@ -474,9 +476,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Doom Menu",
-      "creator": "id software + GZDoom",
+      "desc": "Font used for Doom's primary menu items and level names.  Doom doesn't actually contain this font, only graphics created with it, so the font itself was reverse-engineered from those and missing characters filled in by various contributors.  This version is also silver instead of the original red, presumably for ease of recoloration.",
+      "creator": ["id Software", "Skulltag", "Amuscaria", "JNechaevsky", "GZDoom", "...?"],
       "license": "derivative",
-      "source": "GZDoom's BIGUPPER, reverse engineered and extended from Doom's menu and title graphics",
+      "format": "unicode",
+      "source": "GZDoom's BIGUPPER font for Doom",
       "source_url": "https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigupper"
     }
   },
@@ -584,10 +588,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Doom Nightmare",
-      "creator": "id software + Amuscaria + Eevee",
-      "creator_url": "https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)",
+      "desc": "Font used for selecting Doom's \"Nightmare!\" difficulty; an ominous dripping variant of the normal menu font.  Since this font only existed in a single string, most of it had to be created from scratch based on the menu font.  The bulk of that was done by Amuscaria; I (Eevee) touched it up and filled in a few missing characters.",
+      "creator": ["id Software", "Amuscaria", "Eevee"],
       "license": "derivative",
-      "source": "Amuscaria's spritesheet, cleaned up and extended by me, based on Doom's \"Nightmare!\" skill graphic",
+      "format": "spritesheet",
+      "source": "\"Doom Bloody Font\" on ZDoom forums by Amuscaria",
       "source_url": "https://forum.zdoom.org/viewtopic.php?f=4&t=27060"
     }
   },
@@ -663,10 +668,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Heretic Messages",
-      "desc": "Used for in-game messages and menu prompts.",
+      "desc": "Font used in both Heretic and Hexen for in-game messages and menu prompts.",
       "creator": "Raven Software",
       "license": "commercial",
-      "source": "FONTA__ lumps from heretic.wad"
+      "format": "lumps",
+      "source": "Extracted directly from the FONTA__ lumps in heretic.wad"
     }
   },
   "heretic-menu": {
@@ -740,10 +746,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Heretic Menu",
-      "desc": "Used for main menu options.  (Hexen's font is identical, but colored red.)",
+      "desc": "Font used in both Heretic and Hexen for primary menu items and level names.  Unlike Doom, this font does actually exist as individual character graphics.  (Hexen's font is identical, but colored red.)",
       "creator": "Raven Software",
       "license": "commercial",
-      "source": "FONTB__ lumps from heretic.wad"
+      "format": "lumps",
+      "source": "Extracted direction from the FONTB__ lumps in heretic.wad"
     }
   },
   "chex-small": {
@@ -823,10 +830,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Chex Quest Messages",
-      "desc": "Used for in-game messages and menu prompts.",
-      "creator": "unknown",
-      "license": "unknown",
-      "source": "STCFN___ lumps from chex3.wad"
+      "desc": "Font used in Chex Quest for in-game messages and menu prompts, in place of the Doom messages font.",
+      "creator": "Digital Café",
+      "license": "commercial",
+      "format": "lumps",
+      "source": "Extracted directly from the STCFN___ lumps in chex3.wad"
     }
   },
   "strife-small": {
@@ -905,10 +913,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Strife Micro",
-      "desc": "Used for in-game messages and menu prompts.",
-      "creator": "unknown",
+      "desc": "Font used in rare cases in Strife.  I think it's for showing log messages while a dialog window is open, but I haven't played too much Strife, so I'm not quite sure.",
+      "creator": "Rogue Entertainment",
       "license": "commercial",
-      "source": "STBFN___ lumps from strife.wad"
+      "format": "lumps",
+      "source": "Extracted directly from the STBFN___ lumps in strife.wad"
     }
   },
   "strife-small2": {
@@ -987,10 +996,10 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Strife Messages",
-      "desc": "Used for in-game messages and menu prompts.",
-      "creator": "unknown",
-      "license": "unknown",
-      "source": "STCFN___ lumps from strife.wad"
+      "desc": "Font used in Strife for in-game messages, dialogue, and menu prompts.",
+      "creator": "Rogue Entertainment",
+      "license": "commercial",
+      "source": "Extracted directly from the STCFN___ lumps in strife.wad"
     }
   },
   "strife-bigfont": {
@@ -1122,10 +1131,11 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "Strife Menu",
-      "desc": "Used for main menu options.",
-      "creator": "unknown",
-      "license": "derivative",
-      "source": "Derived from Strife"
+      "desc": "Font used for Strife's primary menu items.  Like Doom, Strife only contains assembled text and not individual characters, so this was reverse-engineered.  I'm not sure who did the actual work, though.",
+      "creator": ["Rogue Entertainment", "GZDoom"],
+      "license": "commercial",
+      "source": "GZDoom's BIGFONT for Strife",
+      "source_url": "https://github.com/ZDoom/gzdoom/tree/master/wadsrc_extra/static/filter/game-strife/fonts/bigfont",
     }
   },
   "zdoom-console": {
@@ -1396,9 +1406,12 @@ export const DOOM_FONTS = {
     ],
     "meta": {
       "name": "ZDoom Console",
-      "creator": "unknown",
+      "desc": "Font used in ZDoom's console.  I don't know where this came from; it's existed since the first commit in the Git repository, in 2006, and the older SVN repository no longer exists.",
+      "creator": "GZDoom",
       "license": "unknown",
-      "source": "confont.lmp from ZDoom"
+      "format": "unicode",
+      "source": "GZDoom's \"consolefont\"",
+      "source_url": "https://github.com/ZDoom/gzdoom/tree/master/wadsrc/static/fonts/consolefont",
     }
   },
   "jimmy-statblws": {
@@ -1406,9 +1419,12 @@ export const DOOM_FONTS = {
     "src": "fonts/STATBLWS.fon2",
     "meta": {
       "name": "Status Report Big",
-      "creator": "id software + James Paddock",
-      "license": "commercial",
-      "source": "extension of Doom's status bar font"
+      "desc": "Font based on the text in the Doom status bar (AMMO, HEALTH, etc.), but scaled up to menu font size.",
+      "creator": ["id Software", "Jimmy"],
+      "license": "derivative",
+      "format": "FON2",
+      "source": "\"Jimmyfonts!\" on ZDoom forums by Jimmy",
+      "source_url": "https://forum.zdoom.org/viewtopic.php?t=33409",
     }
   },
   "doom-doom93": {
@@ -1416,9 +1432,12 @@ export const DOOM_FONTS = {
     "src": "fonts/DOOM93_2.fon2",
     "meta": {
       "name": "Doom 93",
-      "creator": "id software + James Paddock",
+      "desc": "Unused font that John Romero posted to Twitter, touched up by Jimmy.",
+      "creator": ["id Software", "Jimmy"],
       "license": "commercial",
-      "source": "unused Doom font from 1993, posted to Twitter by Romero and touched up by James Paddock"
+      "format": "FON2",
+      "source": "\"Jimmyfonts!\" on ZDoom forums by Jimmy",
+      "source_url": "https://forum.zdoom.org/viewtopic.php?t=33409",
     }
   },
   "doom-alpha": {
@@ -1426,9 +1445,12 @@ export const DOOM_FONTS = {
     "src": "fonts/04FONTOK.fon2",
     "meta": {
       "name": "Nought Point Four",
-      "creator": "id software + James Paddock",
-      "license": "commercial",
-      "source": "extension of a font used in the Doom v0.4 alpha"
+      "desc": "Font based on a graphic from the Doom 0.4 alpha, extended by Jimmy.",
+      "creator": ["id Software", "Jimmy"],
+      "license": "derivative",
+      "format": "FON2",
+      "source": "\"Jimmyfonts!\" on ZDoom forums by Jimmy",
+      "source_url": "https://forum.zdoom.org/viewtopic.php?t=33409",
     }
   },
   "jimmy-jenocide-big": {
@@ -1436,9 +1458,12 @@ export const DOOM_FONTS = {
     "src": "fonts/JENOBIG.fon2",
     "meta": {
       "name": "Jenocide Big",
-      "creator": "ShyFonts + James Paddock",
-      "license": "dubious",
-      "source": "derived from Archery Black by ShyFonts (now defunct)"
+      "desc": "Font used in Jimmy's Skulltag mapset, Jenocide.  Derived from the \"Archery Black\" typeface by ShyFonts, now defunct.  The original license was freeware, though it's unclear whether it approved of this particular use, but the foundry shut down so maybe license concerns are moot.",
+      "creator": ["ShyFonts", "Jimmy"],
+      "license": "unknown",
+      "format": "FON2",
+      "source": "\"Jimmyfonts!\" on ZDoom forums by Jimmy",
+      "source_url": "https://forum.zdoom.org/viewtopic.php?t=33409",
     }
   },
   "jimmy-zd2012-big": {
@@ -1446,9 +1471,12 @@ export const DOOM_FONTS = {
     "src": "fonts/ZD2012.fon2",
     "meta": {
       "name": "ZDoom 2012 Big",
-      "creator": "James Paddock",
-      "license": "freeware?",
-      "source": "inspired by ZDoom logo but otherwise original work"
+      "desc": "Font inspired by the ZDoom logo.",
+      "creator": "Jimmy",
+      "license": "freeware",
+      "format": "FON2",
+      "source": "\"Jimmyfonts!\" on ZDoom forums by Jimmy",
+      "source_url": "https://forum.zdoom.org/viewtopic.php?t=33409",
     }
   },
   "jimmy-tormentstein": {
@@ -1456,12 +1484,28 @@ export const DOOM_FONTS = {
     "src": "fonts/TORMENTK.fon2",
     "meta": {
       "name": "Tormentstein 3D",
-      "desc": "Based on the menu font from Wolfenstein 3D.",
-      "creator": "id software + James Paddock",
-      "license": "freeware?",
-      "source": "inspired by ZDoom logo but otherwise original work"
+      "desc": "Font used in WolfenDoom: Blade of Agony, based on the large font from Wolfenstein 3D.",
+      "creator": ["id Software", "Jimmy"],
+      "license": "derivative",
+      "format": "FON2",
+      "source": "\"Jimmyfonts!\" on ZDoom forums by Jimmy",
+      "source_url": "https://forum.zdoom.org/viewtopic.php?t=33409",
     }
   },
+};
+
+
+export const FONT_CREATOR_URLS = {
+  "id Software": "https://doomwiki.org/wiki/Id_Software",
+  "Amuscaria": "https://doomwiki.org/wiki/Eric_Ou_(Amuscaria)",
+  "Jimmy": "https://doomwiki.org/wiki/James_Paddock_(Jimmy)",
+  "Eevee": "https://eev.ee/",
+};
+export const FONT_LICENSES = {
+  commercial: "Commercial — This was part of, or made for, a commercial product and no one has permission to use it for anything.",
+  derivative: "Derivative — This was derived from a commercial work and no one had permission to make it in the first place, let alone use it for anything else.",
+  freeware: "Freeware — This is original work released freely online.  It has no explicit license, but given that it's useless on its own, it seems clearly intended to be used by others.",
+  unknown: "Unknown — The license is unclear, unavailable, or unreliable.",
 };
 
 

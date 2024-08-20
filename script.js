@@ -13,12 +13,12 @@
 // force into doom (heretic, hexen, ...) palette?  whoof
 // drag and drop for wads
 // pk3 support
-// little info popup about a font (source, copyright, character set...)
 // make translation more fast
 // - preconvert default translation?
 // allow using different fonts in one message (whoof)
 // fix accents and other uses of too-high letters
 // why does "doom menu" have massive descender space whereas "doom menu small caps" does not
+// allow inverting colors when translating (useful for e.g. zdoom 2012)
 //
 // TODO nice to do while i'm here:
 // - modernize js
@@ -33,7 +33,7 @@
 //   - show width/height?
 "use strict";
 import {
-    DOOM_FONTS, DOOM2_PALETTE,
+    DOOM_FONTS, FONT_CREATOR_URLS, FONT_LICENSES, DOOM2_PALETTE,
     ZDOOM_TRANSLATIONS, ZDOOM_ACS_TRANSLATION_CODES, rgb,
     SAMPLE_MESSAGES,
 } from './data.js';
@@ -94,7 +94,7 @@ function string_from_buffer_ascii(buf, start = 0, len) {
         start += buf.byteOffset;
         buf = buf.buffer;
     }
-    return String.fromCharCode.apply(null, new Uint8Array(buf, start, len));
+    return String.fromCodePoint.apply(null, new Uint8Array(buf, start, len));
 }
 
 async function parse_wad(wadfile) {
@@ -289,7 +289,7 @@ function parse_fon2(buf) {
         }
         ctx.putImageData(imgdata, 0, 0);
 
-        glyphs[String.fromCharCode(n)] = {
+        glyphs[String.fromCodePoint(n)] = {
             width: width,
             height: cell_height,
             canvas: canvas,
@@ -345,10 +345,8 @@ class BuiltinFont {
         this.kerning = fontdef.kerning;
         this.lightness_range = fontdef.lightness_range;
 
+        this.meta = fontdef.meta;
         this.name = fontdef.meta.name;
-        this.creator = fontdef.meta.creator;
-        this.license = fontdef.meta.license;
-        this.source = fontdef.meta.source;
 
         this.montage = montage;
     }
@@ -400,10 +398,8 @@ class WADFont {
         this.kerning = 0;
         this.lightness_range = [0, 255];  // TODO can just get from the palette?  or do i need the actual lightness of the colors that get used?  urgh
 
+        this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
-        this.creator = "";  // XXX ???
-        this.license = "";  // XXX ???
-        this.source = "";  // XXX ???
     }
 
     draw_glyph(glyph, ctx, x, y) {
@@ -428,10 +424,8 @@ class FON2Font {
         this.space_width = zdoom_estimate_space_width(this);
         this.lightness_range = ret.lightness_range;
 
+        this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
-        this.creator = meta.creator ?? "";  // XXX ???
-        this.license = meta.license ?? "";  // XXX ???
-        this.source = meta.source ?? "";  // XXX ???
     }
 
     draw_glyph(glyph, ctx, x, y) {
@@ -472,22 +466,9 @@ class BossBrain {
         await Promise.all(promises);
 
         this.font_list_el = document.querySelector('#js-font-list');
+        this.rendered_font_names = {};
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
-            // TODO pop open a lil info overlay for each of these
-            let name_canvas = this.render_text({
-                text: fontdef.meta.name,
-                default_font: ident,
-                scale: 2,
-                canvas: null,
-            });
-            let li = mk('li',
-                mk('label',
-                    mk('input', {type: 'radio', name: 'font', value: ident}),
-                    " ",
-                    name_canvas,
-                ),
-            );
-            this.font_list_el.append(li);
+            this.add_font_to_list(ident, fontdef.meta.name);
         }
 
         if (! this.form.elements['font'].value) {
@@ -741,6 +722,12 @@ class BossBrain {
         window.addEventListener('popstate', ev => {
             this.set_form_from_fragment();
         });
+
+        // Dialogs
+        this.font_info_dialog = document.querySelector('#font-info-dialog');
+        this.font_info_dialog.querySelector('button.-close').addEventListener('click', ev => {
+            ev.target.closest('dialog').close();
+        });
     }
 
     _update_radioset(ul) {
@@ -826,6 +813,116 @@ class BossBrain {
         history.replaceState(null, document.title, '#' + new URLSearchParams(data));
     }
 
+    add_font_to_list(ident, name) {
+        let name_canvas = this.render_text({
+            text: name,
+            default_font: ident,
+            scale: 2,
+            canvas: null,
+        });
+        let info_button = mk('button.emoji-button', {type: 'button'}, "ℹ️");
+        info_button.addEventListener('click', ev => {
+            this.show_font_info(ident);
+        });
+        let li = mk('li',
+            mk('label',
+                mk('input', {type: 'radio', name: 'font', value: ident}),
+                info_button,
+                " ",
+                name_canvas,
+            ),
+        );
+        this.font_list_el.append(li);
+        this.rendered_font_names[ident] = name_canvas;
+    }
+
+    show_font_info(ident) {
+        let font = this.fonts[ident];
+        let dialog = this.font_info_dialog;
+        let q = sel => this.font_info_dialog.querySelector(':scope ' + sel);
+        q('> h1').textContent = '';
+        q('> h1').append(
+            mk('img', {src: this.rendered_font_names[ident].toDataURL('image/png')}));
+
+        if (font.is_builtin) {
+            let title = [`${font.meta?.name} — `];
+            if (font.meta.creator.length) {
+                let first = true;
+                for (let creator of font.meta.creator) {
+                    if (! first) {
+                        title.push(", ");
+                    }
+                    first = false;
+                    if (creator in FONT_CREATOR_URLS) {
+                        title.push(mk('a', {href: FONT_CREATOR_URLS[creator]}, creator));
+                    }
+                    else {
+                        title.push(creator);
+                    }
+                }
+            }
+            else {
+                title.push(font.meta.creator);
+            }
+            q('> h2').textContent = '';
+            q('> h2').append(...title);
+            q('> .-desc').textContent = font.meta.desc;
+        }
+        else {
+            q('> h2').textContent = `${font.meta?.name}`;
+            q('> .-desc').textContent = "Font extracted from a file you provided.";
+        }
+
+        if (font.meta.format === 'lumps') {
+            q('p.-format').textContent = "collection of loose lumps in a WAD";
+        }
+        else if (font.meta.format === 'FON2') {
+            q('p.-format').textContent = "";
+            q('p.-format').textContent.append(
+                mk('a', {href: 'https://zdoom.org/wiki/FON2'}, "FON2"));
+        }
+        else if (font.meta.format === 'unicode') {
+            q('p.-format').textContent = "";
+            q('p.-format').textContent.append(
+                mk('a', {href: 'https://zdoom.org/wiki/Unicode_font'}, "GZDoom \"Unicode\" font"));
+        }
+        if (font.meta.source_url) {
+            q('p.-source').textContent = "";
+            q('p.-source').append(mk('a', {href: font.meta.source_url}, font.meta.source));
+        }
+        else {
+            q('p.-source').textContent = font.meta.source ?? "";
+        }
+        q('p.-license').textContent = FONT_LICENSES[font.meta.license ?? 'unknown'];
+
+        let [table_ascii, table_other] = this.font_info_dialog.querySelectorAll('ol.character-set');
+        table_ascii.textContent = '';
+        table_other.textContent = '';
+        for (let n = 32; n < 128; n++) {
+            let ch = String.fromCodePoint(n);
+            if (ch in font.glyphs) {
+                if (ch === " ") {
+                    ch = "␠";
+                }
+                else if (ch === "\x7f") {
+                    ch = "␡";
+                }
+                table_ascii.append(mk('li', ch));
+            }
+            else {
+                table_ascii.append(mk('li.-missing'));
+            }
+        }
+        for (let ch of Object.keys(font.glyphs).sort()) {
+            if (ch <= "\x7f")
+                continue;
+
+            table_other.append(mk('li', ch));
+        }
+
+        dialog.showModal();
+    }
+
     async load_fonts_from_files(files) {
         let output_el = document.querySelector('#wad-uploader output');
         output_el.classList.remove('--success', '--failure');
@@ -844,20 +941,7 @@ class BossBrain {
             let file = files[i];
             if (result.status === 'fulfilled') {
                 for (let ident of result.value) {
-                    let name_canvas = this.render_text({
-                        text: this.fonts[ident].name.replace(/—/, "-"),
-                        default_font: ident,
-                        scale: 2,
-                        canvas: null,
-                    });
-                    let li = mk('li',
-                        mk('label',
-                            mk('input', {type: 'radio', name: 'font', value: ident}),
-                            " ",
-                            name_canvas,
-                        ),
-                    );
-                    this.font_list_el.append(li);
+                    this.add_font_to_list(ident, this.fonts[ident].name.replace(/—/, "-"));
 
                     // If this is the first font we found, go ahead and select it and redraw.
                     // This also speeds up getting back where you were after refreshing
@@ -1064,7 +1148,7 @@ class BossBrain {
             for (let [n, lump] of possible_glyphs) {
                 let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
                 let canvas = parse_doom_graphic(buf, palette);
-                glyphs[String.fromCharCode(n)] = {
+                glyphs[String.fromCodePoint(n)] = {
                     width: canvas.width,
                     height: canvas.height,
                     canvas: canvas,
@@ -1290,11 +1374,11 @@ class BossBrain {
                 }
                 else if (match[3] !== undefined) {
                     // Octal escape
-                    ch = String.fromCharCode(parseInt(match[3], 8));
+                    ch = String.fromCodePoint(parseInt(match[3], 8));
                 }
                 else if (match[4] !== undefined) {
                     // Hex escape
-                    ch = String.fromCharCode(parseInt(match[4], 16));
+                    ch = String.fromCodePoint(parseInt(match[4], 16));
                 }
                 else if (match[5] !== undefined) {
                     // Literal escape (\\ or \")

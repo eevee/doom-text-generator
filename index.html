@@ -33,6 +33,15 @@
     button {
         padding: 0.25em;
     }
+    button.emoji-button {
+        appearance: none;
+        box-sizing: content-box;
+        width: 1em;
+        height: 1em;
+        background: none;
+        border: none;
+        line-height: 1;
+    }
 
     html {
         height: 100%;
@@ -166,7 +175,7 @@
         display: none;
     }
 
-    p {
+    body > form p {
         font-size: 0.8em;
         color: #666;
         font-style: italic;
@@ -195,6 +204,8 @@
         width: 1em;
         height: 1.33em;  /* one line-height */
         left: 0.125em;
+        top: 50%;
+        transform: translateY(-50%);
     }
     ul.radioset > li > p {
         margin: 0.25em 2em;
@@ -291,6 +302,8 @@
     }
     ul.radioset.alignment > li > label > input:first-child {
         position: static;
+        top: 0;
+        transform: none;
     }
     .alignment-left {
         text-align: left;
@@ -302,6 +315,9 @@
         text-align: right;
     }
 
+    #js-font-list {
+        white-space: nowrap;
+    }
     #js-font-list canvas {
         vertical-align: middle;
     }
@@ -342,6 +358,85 @@
     body.solo form {
         background: transparent;
         display: none;
+    }
+
+    dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        min-width: 20vw;
+        max-width: 90vw;
+        max-height: 90vh;
+        margin: 0;
+        border: 1px solid #999;
+        background: white;
+        box-shadow: 0 2px 4px #0004;
+    }
+    dialog::backdrop {
+        background: hsla(225, 20%, 75%, 0.5);
+    }
+    dialog h1 {
+        margin: 0 0 0.5rem;
+        text-align: center;
+    }
+    dialog h1 img {
+        display: block;
+        margin: 0 auto;
+    }
+    dialog h2 {
+        font-size: 1.5rem;
+        margin: 0.5rem 0;
+        text-align: center;
+        font-weight: normal;
+        color: #666;
+    }
+    dialog h3 {
+        font-size: 1.25rem;
+        font-weight: normal;
+    }
+    dialog button.-close {
+        position: absolute;
+        top: 0.5em;
+        right: 0.5em;
+    }
+    dialog p:empty {
+        display: none;
+    }
+    dialog p::before {
+        font-weight: bold;
+    }
+    dialog p.-format::before {
+        content: "Format: ";
+    }
+    dialog p.-source::before {
+        content: "Source: ";
+    }
+    dialog p.-license::before {
+        content: "License: ";
+    }
+    ol.character-set {
+        display: grid;
+        grid: auto-flow 1.5em / repeat(16, 1.5em);
+        gap: 1px;
+
+        list-style: none;
+        margin: 0.5em auto;
+        padding: 1px;
+        width: fit-content;
+        background: #ccc;
+        line-height: 1;
+    }
+    ol.character-set:empty {
+        display: none;
+    }
+    ol.character-set > li {
+        background: white;
+        padding: 0.25em;
+        text-align: center;
+    }
+    ol.character-set > li.-missing {
+        background: none;
     }
 
     /* Confirmation that you actually copied */
@@ -526,5 +621,17 @@
             most of these fonts are directly sourced from or originally based on commercial works; use at your own peril!
         </footer>
     </form>
+    <dialog id="font-info-dialog">
+        <button type="button" class="emoji-button -close" autofocus>❌</button>
+        <h1>Font Name</h1>
+        <h2>Font Name by Author Name</h2>
+        <div class="-desc"></div>
+        <p class="-format"></p>
+        <p class="-source"></p>
+        <p class="-license"></p>
+
+        <ol class="character-set --ascii"></ol>
+        <ol class="character-set"></ol>
+    </dialog>
 </body>
 </html>
