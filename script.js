@@ -846,7 +846,10 @@ class BossBrain {
 
         if (font.is_builtin) {
             let title = [`${font.meta?.name} — `];
-            if (font.meta.creator.length) {
+            if (typeof font.meta.creator === 'string') {
+                title.push(font.meta.creator);
+            }
+            else {
                 let first = true;
                 for (let creator of font.meta.creator) {
                     if (! first) {
@@ -860,9 +863,6 @@ class BossBrain {
                         title.push(creator);
                     }
                 }
-            }
-            else {
-                title.push(font.meta.creator);
             }
             q('> h2').textContent = '';
             q('> h2').append(...title);
