@@ -878,12 +878,12 @@ class BossBrain {
         }
         else if (font.meta.format === 'FON2') {
             q('p.-format').textContent = "";
-            q('p.-format').textContent.append(
+            q('p.-format').append(
                 mk('a', {href: 'https://zdoom.org/wiki/FON2'}, "FON2"));
         }
         else if (font.meta.format === 'unicode') {
             q('p.-format').textContent = "";
-            q('p.-format').textContent.append(
+            q('p.-format').append(
                 mk('a', {href: 'https://zdoom.org/wiki/Unicode_font'}, "GZDoom \"Unicode\" font"));
         }
         if (font.meta.source_url) {
