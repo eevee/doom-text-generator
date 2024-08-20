@@ -1433,7 +1433,8 @@ class BossBrain {
             let last_word_ending = null;
             let prev_glyph_was_space = false;
             // TODO line height may need adjustment if there's a character that extends above the top of the line
-            // TODO options for this?
+            // TODO options for line height?  always use min height, default, equal height, always
+            // use max height?
 
             let character_regex;
             if (syntax === 'acs') {
@@ -1571,6 +1572,32 @@ class BossBrain {
         if (lines.length > 0) {
             y -= line_spacing;
         }
+
+        // Check for characters that extend beyond the line height
+        // FIXME good lord just make 'draws' a prop of the line
+        for (let [i, line_stat] of line_stats.entries()) {
+            let ascent = 0;
+            let descent = 0;
+            for (let draw of draws) {
+                if (draw.lineno !== i)
+                    continue;
+
+                let dy = draw.glyph.dy ?? 0;
+                ascent = Math.max(ascent, -dy);
+                descent = Math.max(descent, draw.glyph.height + dy - font.line_height);
+            }
+
+            line_stat.ascent = ascent;
+            line_stat.descent = descent;
+        }
+        // Now shift lines to make room for those
+        let y_shift = 0;
+        for (let line_stat of line_stats) {
+            // Lines are drawn relative to their top, below any extra ascent
+            line_stat.y0 += y_shift + line_stat.ascent;
+            y_shift += line_stat.ascent + line_stat.descent;
+        }
+        y += y_shift;
 
         // Resize the canvas to fit snugly
         let canvas_width = Math.max(...Object.values(line_stats).map(line_stat => line_stat.width));
