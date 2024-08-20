@@ -171,7 +171,7 @@ function parse_doom_graphic(buf, palette) {
     }
 
     ctx.putImageData(imgdata, 0, 0);
-    return canvas;
+    return [canvas, xoffset, yoffset];
 }
 
 function* decode_rle(array) {
@@ -1147,11 +1147,13 @@ class BossBrain {
             let glyphs = {};
             for (let [n, lump] of possible_glyphs) {
                 let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
-                let canvas = parse_doom_graphic(buf, palette);
+                let [canvas, xoff, yoff] = parse_doom_graphic(buf, palette);
                 glyphs[String.fromCodePoint(n)] = {
                     width: canvas.width,
                     height: canvas.height,
-                    canvas: canvas,
+                    canvas,
+                    dx: -xoff,
+                    dy: -yoff,
                 };
             }
 
