@@ -434,6 +434,75 @@ class FON2Font {
 }
 
 
+// Lil helper for finding ad-hoc fonts made of collections of lumps.
+// The idea is to find collections of lumps of the form NAMExxx, where xxx is a range of numbers
+// spanning at least 65 to 90 (A-Z) or 97 to 122 (a-z)
+class LumpyFontCollector {
+    constructor() {
+        this.candidates = new Map;
+    }
+
+    scan(stem, opaque) {
+        let m = stem.match(/\d+$/);
+        if (m === null)
+            return;
+
+        let [suffix] = m;
+        let prefix = stem.substring(0, stem.length - suffix.length);
+        // Reject empty prefix
+        if (prefix.length === 0 || prefix.endsWith("/"))
+            return;
+        let num = parseInt(suffix, 10);
+
+        prefix = prefix.toUpperCase();
+        if (! this.candidates.has(prefix)) {
+            this.candidates.set(prefix, new Map);
+        }
+        let catalogue = this.candidates.get(prefix);
+        catalogue.set(num, opaque);
+    }
+
+    *get_results() {
+        for (let [prefix, catalogue] of this.candidates) {
+            let found_upper = true;
+            for (let cp = 65; cp < 91; cp++) {
+                if (! catalogue.has(cp)) {
+                    found_upper = false;
+                    break;
+                }
+            }
+            let found_lower = true;
+            for (let cp = 97; cp < 123; cp++) {
+                if (! catalogue.has(cp)) {
+                    found_lower = false;
+                    break;
+                }
+            }
+            if (! found_upper && ! found_lower) {
+                console.log("not a font (no full alphabet):", prefix);
+                continue;
+            }
+
+            // We might still be fooled by e.g. a bunch of patches, so if there are too many
+            // "glyphs" in the [0, 31] range, it's probably not a font
+            let found_control = 0;
+            for (let cp = 0; cp < 32; cp++) {
+                if (catalogue.has(cp)) {
+                    found_control += 1;
+                }
+            }
+            if (found_control > 8) {
+                console.log("not a font (too many control chars):", prefix);
+                continue;
+            }
+
+            // Seems plausible!
+            yield [prefix, catalogue];
+        }
+    }
+}
+
+
 class BossBrain {
     constructor() {
         // Visible canvas on the actual page
@@ -985,42 +1054,50 @@ class BossBrain {
         let magic = string_from_buffer_ascii(await file.slice(0, 4).arrayBuffer());
         let found_fonts = [];
 
-        let lump_index = {};
-        let possible_font_prefixes = new Set;
+        // WADs and PK3s are fairly similar (other than that only PK3s can contain unicode fonts),
+        // but not QUITE similar enough to share code, alas.
+        // Duplicating several lines of FON parsing is especially irritating
+        let playpal_buf;
+        let lump_index = {};  // uppercase lump name: ArrayBuffer
+        let collector = new LumpyFontCollector;
+        let read_lump;  // ugh
         if (magic === 'IWAD' || magic === 'PWAD') {
+            read_lump = lump => {
+                return file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
+            };
             let lumps = await parse_wad(file);
-            // Look for vanilla-style fonts (lots of individual graphics) by looking for lumps of
-            // the form NAMExxx, where xxx is a range of numbers spanning at least 65 to 90 (A-Z)
-            // or 97 to 122 (a-z)
-            for (let lump of lumps) {
-                lump_index[lump.name] = lump;
-                if (lump.name.endsWith('65') || lump.name.endsWith('97')) {
-                    possible_font_prefixes.add(
-                        lump.name.substring(0, lump.name.length - 2).replace(/0+$/, ''));
-                }
 
-                // Unfortunately to find FON2 files we have to peek at the magic number of every
-                // single lump...
+            for (let lump of lumps) {
+                // Markers and the like will never be interesting
                 if (lump.size < 4)
                     continue;
-                let lump_magic = string_from_buffer_ascii(
+                lump_index[lump.name.toUpperCase()] = lump;
+
+                // Check for a known font type
+                let magic = string_from_buffer_ascii(
                     await file.slice(lump.offset, lump.offset + 4).arrayBuffer());
-                if (lump_magic === 'FON2') {
-                    // We can just load this now I guess?
+                if (magic === 'FON2') {
                     let ident = `${file.name}:${lump.name}`;
-                    let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
-                    let font = new FON2Font(buf, {
-                        name: `${file.name} — ${lump.name} FON2 font`,
+                    let buf = file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
+                    this.fonts[ident] = new FON2Font(await file.arrayBuffer(), {
+                        name: `${file.name} — ${lump.name}`,
                     });
-                    this.fonts[ident] = font;
                     found_fonts.push(ident);
+                    continue;
                 }
+
+                if (lump.name === 'PLAYPAL' && lump.size >= 768) {
+                    playpal_buf = await file.slice(lump.offset, lump.offset + 768).arrayBuffer();
+                }
+
+                collector.scan(lump.name, lump);
             }
         }
         else if (magic === 'PK\x03\x04') {
             if (! window.fflate)
                 throw new Error("Can't read PK3s because the fflate library failed to load");
 
+            read_lump = bytes => bytes.buffer;
             // I've been unable to find a JS zip library that will let me peek at the first few
             // bytes of each entry without decompressing every goddamn one, so, fuck it I
             // guess, it's your machine not mine, let's just inflate it big and round
@@ -1045,110 +1122,118 @@ class BossBrain {
             // - Unicode fonts, a directory /fonts/foo containing images (TODO)
             // - A big ol' pile of Doom graphics used implicitly (TODO ugh)
             // - Something vastly more complicated using FONTDEFS (TODO TODO TODO)
+            let unicode_fonts = {};
             for (let [path, data] of Object.entries(contents)) {
                 if (data.byteLength < 4)
                     continue;
-                let lump_magic = string_from_buffer_ascii(data, 0, 4);
-                if (lump_magic === 'FON2') {
+
+                let magic = string_from_buffer_ascii(data, 0, 4);
+                if (magic === 'FON2') {
                     let ident = `${file.name}:${path}`;
-                    let font = new FON2Font(data.buffer, {
-                        name: `${file.name} — ${path} FON2 font`,
+                    this.fonts[ident] = new FON2Font(data.buffer, {
+                        name: `${file.name} — ${path}`,
                     });
-                    this.fonts[ident] = font;
                     found_fonts.push(ident);
+                    continue;
+                }
+
+                // Look for Unicode fonts, which are at least easy to identify: they're all
+                // fonts/NAME/HHHH, with an optional font.inf in the same directory
+                let m = path.match(/^(fonts[/][^/]+)[/]([^/.]+)([.].*)?$/);
+                if (m) {
+                    let [_, fontpath, stem, ext] = m;
+                    let cp = parseInt(stem, 16);
+                    if (Number.isNaN(cp)) {
+                        continue;
+                    }
+
+                    if (! unicode_fonts[fontpath]) {
+                        unicode_fonts[fontpath] = {
+                            glyphs: new Map,
+                        };
+                    }
+                    if (path.endsWith('/font.inf')) {
+                        // TODO parse this, seems important
+                        continue;
+                    }
+                    unicode_fonts[fontpath].glyphs.set(cp, data);
+                }
+
+                if (path.match(/^playpal(?:[.][^/]*)?$/i) && data.byteLength >= 768) {
+                    playpal_buf = data;
+                }
+
+                // For a PK3, lumpy fonts should be in graphics/
+                if (path.startsWith('graphics/')) {
+                    collector.scan(path.replace(/[.][^.]+$/, ''), data);
                 }
             }
+
+            // Assemble any Unicode fonts
+            console.log("unicode fonts?", unicode_fonts);
+            // TODO
         }
         else if (magic === 'FON2') {
             let ident = file.name;
-            let font = new FON2Font(await file.arrayBuffer(), {
+            this.fonts[ident] = new FON2Font(await file.arrayBuffer(), {
                 name: file.name.replace(/[.][^.]+$/, ''),
             });
-            this.fonts[ident] = font;
             return [ident];
         }
         else {
             throw new Error("Unrecognized file type");
         }
 
-        if (possible_font_prefixes.length === 0) {
-            if (found_fonts.length > 0) {
-                return found_fonts;
-            }
-
-            throw new Error("Couldn't find any lumps that look like fonts");
-        }
-
-        // Extract the palette first, if any
-        let palette;
-        if ('PLAYPAL' in lump_index) {
-            let lump = lump_index['PLAYPAL'];
-            if (lump.size >= 768) {
-                palette = [];
-                let buf = await file.slice(lump.offset, lump.offset + 768).arrayBuffer();
-                let bytes = new Uint8Array(buf);
-                for (let i = 0; i < 256; i++) {
-                    palette.push([bytes[i*3], bytes[i*3 + 1], bytes[i*3 + 2]]);
+        // OK, all that's left from here are lump clumps
+        let palette;  // lazy-load this
+        for (let [prefix, catalogue] of collector.get_results()) {
+            // Extract the palette first, if we saw one
+            if (! palette) {
+                if (playpal_buf) {
+                    palette = [];
+                    let bytes = new Uint8Array(playpal_buf);
+                    for (let i = 0; i < 256; i++) {
+                        palette.push([bytes[i*3], bytes[i*3 + 1], bytes[i*3 + 2]]);
+                    }
                 }
-            }
-        }
-        if (! palette) {
-            // Default to Doom 2 for now I guess
-            // TODO UI for choosing a different stock palette...?
-			palette = DOOM2_PALETTE;
-        }
-
-        for (let prefix of possible_font_prefixes) {
-            let possible_glyphs = new Map;
-            for (let lump of Object.values(lump_index)) {
-                if (lump.name.startsWith(prefix)) {
-                    let num = parseInt(lump.name.substring(prefix.length), 10);
-                    if (num !== num)
-                        continue;
-                    possible_glyphs.set(num, lump);
+                if (! palette) {
+                    // Default to Doom 2 for now I guess
+                    // TODO UI for choosing a different stock palette...?
+                    palette = DOOM2_PALETTE;
                 }
             }
 
-            let found_lower = true;
-            let found_upper = true;
-            for (let n = 65; n < 91; n++) {
-                if (! possible_glyphs.has(n)) {
-                    found_upper = false;
-                    break;
-                }
-            }
-            for (let n = 97; n < 123; n++) {
-                if (! possible_glyphs.has(n)) {
-                    found_lower = false;
-                    break;
-                }
-            }
-            if (! found_upper && ! found_lower) {
-                console.log("not a font (no full alphabet):", prefix);
-                continue;
-            }
-
-            // We might still be fooled by e.g. a bunch of patches, so if there are too many
-            // "glyphs" in the [0, 31] range, it's probably not a font
-            let found_control = 0;
-            for (let n = 0; n < 32; n++) {
-                if (possible_glyphs.has(n)) {
-                    found_control += 1;
-                }
-            }
-            if (found_control > 8) {
-                console.log("not a font (too many control chars):", prefix);
-                continue;
-            }
-
-            // OK, finally, we think we have a font; convert the map into a table of
-            // glyphs and decode the image data
+            // Convert the map into a table of glyphs and decode the image data
             console.log("looks like we have a font:", prefix);
             let glyphs = {};
-            for (let [n, lump] of possible_glyphs) {
-                let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
-                let [canvas, xoff, yoff] = parse_doom_graphic(buf, palette);
-                glyphs[String.fromCodePoint(n)] = {
+            for (let [cp, opaque] of catalogue) {
+                let buf = await read_lump(opaque);
+                let magic = string_from_buffer_ascii(buf, 0, 8);
+                let canvas, xoff, yoff;
+                if (magic === '\x89PNG\x0d\x0a\x1a\x0a') {
+                    // This is a PNG already, so we can just wrap it in an image
+                    canvas = new Image;
+                    let bytestring = string_from_buffer_ascii(buf);
+                    canvas.src = 'data:image/png;base64,' + btoa(bytestring);
+                    await canvas.decode();
+                    // Difficulty: we would really like to support the grAb chunk, without writing a
+                    // full PNG decoder in JavaScript.  So let's...  let's just...  shh...
+                    let i = bytestring.indexOf('grAb');
+                    if (i >= 8) {
+                        let view = new DataView(buf);
+                        xoff = view.getInt32(i + 4, true);
+                        yoff = view.getInt32(i + 8, true);
+                    }
+                    else {
+                        xoff = 0;
+                        yoff = 0;
+                    }
+                }
+                else {
+                    // Presume a Doom graphic
+                    [canvas, xoff, yoff] = parse_doom_graphic(buf, palette);
+                }
+                glyphs[String.fromCodePoint(cp)] = {
                     width: canvas.width,
                     height: canvas.height,
                     canvas,
@@ -1159,7 +1244,7 @@ class BossBrain {
 
             let ident = file.name + ":" + prefix;
             this.fonts[ident] = new WADFont(glyphs, {
-                name: `${file.name} — ${prefix} lumps font`,
+                name: `${file.name} — ${prefix}*`,
             });
             found_fonts.push(ident);
         }
