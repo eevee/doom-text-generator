@@ -19,6 +19,8 @@
 // fix accents and other uses of too-high letters
 // why does "doom menu" have massive descender space whereas "doom menu small caps" does not
 // allow inverting colors when translating (useful for e.g. zdoom 2012)
+// fix lightness detection on lumps loaded from a wad
+// fix 04FONTOK, wxyz are jank
 //
 // TODO nice to do while i'm here:
 // - modernize js
@@ -318,7 +320,7 @@ let trans_canvas = mk('canvas', {width: TRANS_WIDTH, height: TRANS_HEIGHT});
 class BuiltinFont {
     static async from_builtin(fontdef) {
         let montage = new Image;
-        montage.src = fontdef.image;
+        montage.src = fontdef.src;
         await montage.decode();
         return new this(fontdef, montage);
     }
@@ -400,6 +402,7 @@ class WADFont {
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
+        this.meta.format = 'lumps';
     }
 
     draw_glyph(glyph, ctx, x, y) {
@@ -426,6 +429,7 @@ class FON2Font {
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
+        this.meta.format = 'FON2';
     }
 
     draw_glyph(glyph, ctx, x, y) {
