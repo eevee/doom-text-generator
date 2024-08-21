@@ -648,49 +648,22 @@ class BossBrain {
             wad_ctl.click();
         });
 
-        // Scale
-        let scale_ctl = this.form.elements['scale'];
-        function update_scale_label() {
-            scale_ctl.parentNode.querySelector('output').textContent = `${scale_ctl.value}×`;
+        // Slider controls
+        for (let name of ['scale', 'kerning', 'line-spacing', 'padding']) {
+            let ctl = this.form.elements[name];
+            let output = ctl.parentNode.querySelector('output');
+            ctl.addEventListener('input', ev => {
+                output.textContent = String(ctl.value);
+                if (name === 'scale') {
+                    output.textContent += "×";
+                }
+                this.redraw_current_text();
+            });
+            output.textContent = String(ctl.value);
+            if (name === 'scale') {
+                output.textContent += "×";
+            }
         }
-        scale_ctl.addEventListener('input', ev => {
-            update_scale_label();
-            this.redraw_current_text();
-        });
-        update_scale_label();
-
-        // Kerning
-        let kerning_ctl = this.form.elements['kerning'];
-        function update_kerning_label() {
-            kerning_ctl.parentNode.querySelector('output').textContent = String(kerning_ctl.value);
-        }
-        kerning_ctl.addEventListener('input', ev => {
-            update_kerning_label();
-            this.redraw_current_text();
-        });
-        update_kerning_label();
-
-        // Line spacing
-        let line_spacing_ctl = this.form.elements['line-spacing'];
-        function update_line_spacing_label() {
-            line_spacing_ctl.parentNode.querySelector('output').textContent = String(line_spacing_ctl.value);
-        }
-        line_spacing_ctl.addEventListener('input', ev => {
-            update_line_spacing_label();
-            this.redraw_current_text();
-        });
-        update_line_spacing_label();
-
-        // Padding
-        let padding_ctl = this.form.elements['padding'];
-        function update_padding_label() {
-            padding_ctl.parentNode.querySelector('output').textContent = String(padding_ctl.value);
-        }
-        padding_ctl.addEventListener('input', ev => {
-            update_padding_label();
-            this.redraw_current_text();
-        });
-        update_padding_label();
 
         // Alignment
         let alignment_list = this.form.querySelector('ul.alignment');
