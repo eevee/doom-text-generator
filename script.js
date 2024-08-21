@@ -1267,9 +1267,9 @@ class BossBrain {
                     dy: -yoff,
                 };
 
-                let [light0, light1] = measure_image_brightness(canvas);
+                let [light0, light1] = measure_image_lightness(canvas);
                 minlight = Math.min(minlight, light0);
-                maxlight = Math.min(maxlight, light1);
+                maxlight = Math.max(maxlight, light1);
             }
 
             let ident = file.name + ":" + prefix;
