@@ -40,6 +40,13 @@ import {
     SAMPLE_MESSAGES,
 } from './data.js';
 
+
+// XXX zdoom uses integers for a font's lightness range...
+const USE_ZDOOM_TRANSLATION_ROUNDING = true;
+
+let scratch_canvas = mk('canvas', {width: 32, height: 32});
+
+
 function mk(tag_selector, ...children) {
     let [tag, ...classes] = tag_selector.split('.');
     let el = document.createElement(tag);
@@ -76,8 +83,56 @@ function random_choice(list) {
     return list[Math.floor(Math.random() * list.length)];
 }
 
-function get_lightness(color) {
-    return color[0] * 0.299 + color[1] * 0.587 + color[2] * 0.114;
+function get_lightness(r, g, b) {
+    return r * 0.299 + g * 0.587 + b * 0.114;
+}
+
+function init_scratch_canvas(w, h) {
+    if (scratch_canvas.width < w) {
+        scratch_canvas.width = w;
+    }
+    if (scratch_canvas.height < h) {
+        scratch_canvas.height = h;
+    }
+    let ctx = scratch_canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    return ctx
+}
+
+function measure_image_lightness(image) {
+    let canvas, ctx, w, h;
+    if (image instanceof HTMLCanvasElement) {
+        canvas = image;
+        ctx = canvas.getContext('2d');
+        w = canvas.width;
+        h = canvas.height;
+    }
+    else {
+        canvas = scratch_canvas;
+        ctx = init_scratch_canvas(image.naturalWidth, image.naturalHeight);
+        ctx.drawImage(image, 0, 0);
+        w = image.naturalWidth;
+        h = image.naturalHeight;
+    }
+
+    let minlight = 255;
+    let maxlight = 0;
+    let imgdata = ctx.getImageData(0, 0, w, h);
+    let px = imgdata.data;
+    for (let i = 0; i < px.length; i += 4) {
+        if (px[i + 3] === 0)
+            continue;
+
+        let lightness = get_lightness(px[i + 0], px[i + 1], px[i + 2]);
+        minlight = Math.min(minlight, lightness);
+        maxlight = Math.max(maxlight, lightness);
+    }
+    if (maxlight < minlight) {
+        minlight = 0;
+        maxlight = 255;
+    }
+
+    return [minlight, maxlight];
 }
 
 function translation_to_gradient(spans) {
@@ -98,6 +153,7 @@ function string_from_buffer_ascii(buf, start = 0, len) {
     }
     return String.fromCodePoint.apply(null, new Uint8Array(buf, start, len));
 }
+
 
 async function parse_wad(wadfile) {
     // Use the Blob API to avoid loading the whole file at once, since it might be real big
@@ -251,7 +307,7 @@ function parse_fon2(buf) {
 
         // Do NOT do this for the first or last colors, which are transparent and dummy
         if (i !== 0 && i !== palette_size) {
-            let lightness = get_lightness(color);
+            let lightness = get_lightness(...color);
             min_lightness = Math.min(min_lightness, lightness);
             max_lightness = Math.max(max_lightness, lightness);
         }
@@ -305,16 +361,6 @@ function parse_fon2(buf) {
         lightness_range: [min_lightness, max_lightness],
     };
 }
-
-// XXX absolutely no idea what this was for
-const USE_ZDOOM_TRANSLATION_ROUNDING = true;
-
-
-// This size should be big enough to fit any character!
-// FIXME could just auto resize when it's too small
-const TRANS_WIDTH = 32;
-const TRANS_HEIGHT = 32;
-let trans_canvas = mk('canvas', {width: TRANS_WIDTH, height: TRANS_HEIGHT});
 
 // "Standard" fonts I scraped myself from various places and crammed into montages
 class BuiltinFont {
@@ -1210,6 +1256,8 @@ class BossBrain {
             // Convert the map into a table of glyphs and decode the image data
             console.log("looks like we have a font:", prefix);
             let glyphs = {};
+            let minlight = 255;
+            let maxlight = 0;
             for (let [cp, opaque] of catalogue) {
                 let buf = await read_lump(opaque);
                 let magic = string_from_buffer_ascii(buf, 0, 8);
@@ -1244,12 +1292,18 @@ class BossBrain {
                     dx: -xoff,
                     dy: -yoff,
                 };
+
+                let [light0, light1] = measure_image_brightness(canvas);
+                minlight = Math.min(minlight, light0);
+                maxlight = Math.min(maxlight, light1);
             }
 
             let ident = file.name + ":" + prefix;
             this.fonts[ident] = new WADFont(glyphs, {
                 name: `${file.name} — ${prefix}*`,
             });
+            // XXX should proooobably pass this in
+            this.fonts[ident].lightness_range = [minlight, maxlight];
             found_fonts.push(ident);
         }
 
@@ -1631,19 +1685,18 @@ class BossBrain {
                 // draw it to this canvas and then alter it, because negative
                 // kerning might make it overlap an existing character we shouldn't
                 // be translating
-                let trans_ctx = trans_canvas.getContext('2d');
-                trans_ctx.clearRect(0, 0, glyph.width, glyph.height);
-                font.draw_glyph(glyph, trans_ctx, 0, 0);
+                let scratch_ctx = init_scratch_canvas(glyph.width, glyph.height);
+                font.draw_glyph(glyph, scratch_ctx, 0, 0);
 
                 // Now translate it in place
-                let imagedata = trans_ctx.getImageData(0, 0, glyph.width, glyph.height);
+                let imagedata = scratch_ctx.getImageData(0, 0, glyph.width, glyph.height);
                 let pixels = imagedata.data;
                 for (let i = 0; i < pixels.length; i += 4) {
                     if (pixels[i + 3] === 0)
                         continue;
 
                     // FIXME these are...  part of the font definition i guess?
-                    let lightness = get_lightness([pixels[i + 0], pixels[i + 1], pixels[i + 2]]);
+                    let lightness = get_lightness(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
                     lightness = (lightness - font.lightness_range[0]) / (font.lightness_range[1] - font.lightness_range[0]);
                     let l = Math.max(0, Math.min(255, Math.floor(lightness * 256)));
                     //console.log(pixels[i], pixels[i+1], pixels[i+2], lightness, l);
@@ -1660,13 +1713,13 @@ class BossBrain {
                         }
                     }
                 }
-                trans_ctx.putImageData(imagedata, 0, 0);
+                scratch_ctx.putImageData(imagedata, 0, 0);
 
                 // Finally blit it onto the final canvas.  Note that we do NOT put
                 // the image data directly, since that overwrites rather than
                 // compositing
                 ctx.drawImage(
-                    trans_canvas,
+                    scratch_canvas,
                     0, 0, glyph.width, glyph.height,
                     px, py, glyph.width, glyph.height);
             }
