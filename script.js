@@ -430,7 +430,7 @@ class WADFont {
         this.space_width = 0;
         let uniform_width = true;
         for (let glyph of Object.values(glyphs)) {
-            this.line_height = Math.max(this.line_height, glyph.height);
+            this.line_height = Math.max(this.line_height, glyph.height + glyph.dy);
             if (this.space_width === 0) {
                 this.space_width = glyph.width;
             }
