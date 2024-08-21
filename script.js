@@ -19,8 +19,8 @@
 // fix accents and other uses of too-high letters
 // why does "doom menu" have massive descender space whereas "doom menu small caps" does not
 // allow inverting colors when translating (useful for e.g. zdoom 2012)
-// fix lightness detection on lumps loaded from a wad
 // fix 04FONTOK, wxyz are jank
+// fix inferring line height from a loaded font
 //
 // TODO nice to do while i'm here:
 // - modernize js
@@ -351,6 +351,7 @@ function parse_fon2(buf) {
             width: width,
             height: cell_height,
             canvas: canvas,
+            dy: 0,
         };
     }
 
@@ -659,11 +660,11 @@ class BossBrain {
                 }
                 this.redraw_current_text();
             });
-            output.textContent = String(ctl.value);
-            if (name === 'scale') {
-                output.textContent += "×";
-            }
+            // Note we don't need to update the text now, because we call fix_form in a moment
         }
+
+        // Escapee mode
+        this.form.elements['escapee-mode'].addEventListener('change', redraw_handler);
 
         // Alignment
         let alignment_list = this.form.querySelector('ul.alignment');
@@ -1394,6 +1395,7 @@ class BossBrain {
             scale: elements['scale'].value,
             kerning: parseInt(elements['kerning'].value, 10),
             line_spacing: parseInt(elements['line-spacing'].value, 10),
+            escapee_mode: elements['escapee-mode'].value,
             padding: parseInt(elements['padding'].value, 10),
             wrap: wrap,
             default_font: elements['font'].value,
@@ -1414,6 +1416,17 @@ class BossBrain {
         let scale = args.scale || 1;
         let kerning = args.kerning || 0;
         let line_spacing = args.line_spacing || 0;
+        // How to adjust the height of the line for odd-size glyphs:
+        // default: just use the given line height and do nothing else
+        // max: all lines grow to fit the whole charset
+        // each: each line grows to fit that line's glyphs
+        // equal: all lines grow to fit the whole text's glyphs
+        // min-each: like 'each', but also shrink to fit that line's glyphs
+        // min-equal: like 'equal', but also shrink to fit the whole text's glyphs
+        let escapee_mode = args.escapee_mode || 'none';
+        if (['max', 'each', 'equal', 'min-each', 'min-equal'].indexOf(escapee_mode) < 0) {
+            escapee_mode = 'none';
+        }
         let padding = Math.max(0, args.padding || 0);
         let default_font = args.default_font || 'doom-small';
         let default_translation = args.default_translation || null;
@@ -1450,15 +1463,24 @@ class BossBrain {
 
         // Compute some layout metrics first
         let draws = [];
-        let line_stats = [];
+        let line_infos = [];
         let y = 0;
-        let lineno = 0;
         for (let line of lines) {
             // Note: with ACS, the color reverts at the end of every line
             let translation = default_translation;
             let x = 0;
             let last_word_ending = null;
             let prev_glyph_was_space = false;
+            let line_info = {
+                draws: [],
+                width: 0,  // updated at the end of the line
+                height: font.line_height,
+                ascent: 0,
+                descent: 0,
+                x0: 0,  // updated later
+                y0: y,
+            };
+            line_infos.push(line_info);
             // TODO line height may need adjustment if there's a character that extends above the top of the line
             // TODO options for line height?  always use min height, default, equal height, always
             // use max height?
@@ -1542,15 +1564,7 @@ class BossBrain {
                         continue;
                 }
 
-                draws.push({
-                    _ch: ch,
-                    glyph: glyph,
-                    lineno: lineno,
-                    x: x,
-                    translation: translation,
-                    is_space: is_space,
-                });
-
+                line_info.draws.push({glyph, x, translation, is_space});
                 x += glyph.width;
 
                 if (! is_space && wrap !== null && x > wrap && last_word_ending !== null) {
@@ -1559,24 +1573,29 @@ class BossBrain {
                     // long word and there's nothing we can do about it.)
 
                     // End the current line
-                    line_stats.push({
-                        width: last_word_ending.x,
-                        x0: 0,  // updated below
-                        y0: y,
-                    });
-                    y += font.line_height + line_spacing;
-                    lineno += 1;
+                    line_info.width = last_word_ending.x;
+                    y += line_info.height + line_spacing;
 
-                    // Update all the rest of the characters in the line.  Note that if there's no
-                    // space glyph, the "space" we saw is really just the next non-space character.
+                    // Move this word's draws onto a new line, skipping any intermediate spaces
                     let i0 = last_word_ending.next_index;
-                    while (i0 < draws.length && draws[i0].is_space) {
-                        draws.splice(i0, 1);
+                    while (i0 < line_info.draws.length && line_info.draws[i0].is_space) {
+                        line_info.draws.splice(i0, 1);
                     }
-                    let dx = draws[i0].x;
-                    for (let i = i0; i < draws.length; i++) {
-                        draws[i].lineno += 1;
-                        draws[i].x -= dx;
+                    let old_line_info = line_info;
+                    line_info = {
+                        draws: old_line_info.draws.splice(i0),
+                        width: 0,
+                        height: font.line_height,
+                        ascent: 0,
+                        descent: 0,
+                        x0: 0,
+                        y0: y,
+                    };
+                    line_infos.push(line_info);
+                    // Shift them back to the start of the line
+                    let dx = line_info.draws[0].x;
+                    for (let draw of line_info.draws) {
+                        draw.x -= dx;
                     }
 
                     // Update our current x position, discarding any kerning, and continue
@@ -1585,50 +1604,67 @@ class BossBrain {
                 }
             }
 
-            line_stats.push({
-                width: x,
-                x0: 0,  // updated below
-                y0: y,
-            });
-
-            y += font.line_height + line_spacing;
-            lineno += 1;
+            line_info.width = x;
+            y += line_info.height + line_spacing;
         }
 
         // Undo this, since there's no spacing after the last line
         if (lines.length > 0) {
             y -= line_spacing;
         }
+        let canvas_height = y;
 
-        // Check for characters that extend beyond the line height
-        // FIXME good lord just make 'draws' a prop of the line
-        for (let [i, line_stat] of line_stats.entries()) {
-            let ascent = 0;
-            let descent = 0;
-            for (let draw of draws) {
-                if (draw.lineno !== i)
-                    continue;
-
-                let dy = draw.glyph.dy ?? 0;
-                ascent = Math.max(ascent, -dy);
-                descent = Math.max(descent, draw.glyph.height + dy - font.line_height);
+        // Deal with characters that extend beyond the line height, or that don't extend to reach it
+        // TODO feels like a font method maybe
+        let extract_ascent_descent = (glyphs, line_height, min_zero) => {
+            let ascent = Math.max(...glyphs.map(glyph => -glyph.dy));
+            let descent = Math.max(...glyphs.map(glyph => glyph.height + glyph.dy - line_height));
+            if (min_zero) {
+                ascent = Math.max(0, ascent);
+                descent = Math.max(0, descent);
+            }
+            return [ascent, descent];
+        };
+        if (escapee_mode === 'max') {
+            // Make every line as tall as possible
+            let [ascent, descent] = extract_ascent_descent(
+                Object.values(font.glyphs), font.line_height, true);
+            for (let line_info of line_infos) {
+                line_info.ascent = ascent;
+                line_info.descent = descent;
+            }
+        }
+        else if (escapee_mode !== 'none') {
+            // Actually compute how much extra ascent + descent space we need
+            for (let line_info of line_infos) {
+                [line_info.ascent, line_info.descent] = extract_ascent_descent(
+                    line_info.draws.map(draw => draw.glyph),
+                    font.line_height,
+                    ! (escapee_mode === 'min-each' || escapee_mode === 'min-equal'));
             }
 
-            line_stat.ascent = ascent;
-            line_stat.descent = descent;
+            // For 'equal' height, copy the greatest of each to every line
+            if (escapee_mode === 'equal' || escapee_mode === 'min-equal') {
+                let ascent = Math.max(...line_infos.map(line_info => line_info.ascent));
+                let descent = Math.max(...line_infos.map(line_info => line_info.descent));
+                for (let line_info of line_infos) {
+                    line_info.ascent = ascent;
+                    line_info.descent = descent;
+                }
+            }
         }
-        // Now shift lines to make room for those
+
+        // Apply any vertical space changes from ascent/descent
         let y_shift = 0;
-        for (let line_stat of line_stats) {
-            // Lines are drawn relative to their top, below any extra ascent
-            line_stat.y0 += y_shift + line_stat.ascent;
-            y_shift += line_stat.ascent + line_stat.descent;
+        for (let line_info of line_infos) {
+            // Ascent is "outside" the line, so it goes before the line's y position
+            line_info.y0 += y_shift + line_info.ascent;
+            y_shift += line_info.ascent + line_info.descent;
         }
-        y += y_shift;
+        canvas_height += y_shift;
 
         // Resize the canvas to fit snugly
-        let canvas_width = Math.max(...Object.values(line_stats).map(line_stat => line_stat.width));
-        let canvas_height = y;
+        let canvas_width = Math.max(...line_infos.map(line_info => line_info.width));
         this.buffer_canvas.width = canvas_width;
         this.buffer_canvas.height = canvas_height;
         if (canvas_width === 0 || canvas_height === 0) {
@@ -1637,68 +1673,66 @@ class BossBrain {
 
         // Align text horizontally
         if (alignment > 0) {
-            for (let line_stat of line_stats) {
-                line_stat.x0 = Math.floor((canvas_width - line_stat.width) * alignment);
+            for (let line_info of line_infos) {
+                line_info.x0 = Math.floor((canvas_width - line_info.width) * alignment);
             }
         }
 
         // And draw!
         let ctx = this.buffer_canvas.getContext('2d');
-        // FIXME consolidate into one object
-        for (let draw of draws) {
-            let line_stat = line_stats[draw.lineno];
-            let glyph = draw.glyph;
-            let px = line_stat.x0 + (glyph.dx || 0) + draw.x;
-            let py = line_stat.y0 + (glyph.dy || 0);
-            if (draw.translation) {
-                // Argh, we need to translate
-                let transdef = this.translations[draw.translation];
-                let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
-                // First draw the character to the dummy canvas -- note we can't
-                // draw it to this canvas and then alter it, because negative
-                // kerning might make it overlap an existing character we shouldn't
-                // be translating
-                let scratch_ctx = init_scratch_canvas(glyph.width, glyph.height);
-                font.draw_glyph(glyph, scratch_ctx, 0, 0);
+        for (let line_info of line_infos) {
+            for (let draw of line_info.draws) {
+                let glyph = draw.glyph;
+                let px = line_info.x0 + (glyph.dx || 0) + draw.x;
+                let py = line_info.y0 + (glyph.dy || 0);
+                if (draw.translation) {
+                    // Argh, we need to translate
+                    let transdef = this.translations[draw.translation];
+                    let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
+                    // First draw the character to the dummy canvas -- note we can't
+                    // draw it to this canvas and then alter it, because negative
+                    // kerning might make it overlap an existing character we shouldn't
+                    // be translating
+                    let scratch_ctx = init_scratch_canvas(glyph.width, glyph.height);
+                    font.draw_glyph(glyph, scratch_ctx, 0, 0);
 
-                // Now translate it in place
-                let imagedata = scratch_ctx.getImageData(0, 0, glyph.width, glyph.height);
-                let pixels = imagedata.data;
-                for (let i = 0; i < pixels.length; i += 4) {
-                    if (pixels[i + 3] === 0)
-                        continue;
+                    // Now translate it in place
+                    let imagedata = scratch_ctx.getImageData(0, 0, glyph.width, glyph.height);
+                    let pixels = imagedata.data;
+                    let [light0, light1] = font.lightness_range;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        if (pixels[i + 3] === 0)
+                            continue;
 
-                    // FIXME these are...  part of the font definition i guess?
-                    let lightness = get_lightness(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
-                    lightness = (lightness - font.lightness_range[0]) / (font.lightness_range[1] - font.lightness_range[0]);
-                    let l = Math.max(0, Math.min(255, Math.floor(lightness * 256)));
-                    //console.log(pixels[i], pixels[i+1], pixels[i+2], lightness, l);
-                    for (let span of trans) {
-                        if (span[0] <= l && l <= span[1]) {
-                            let t = Math.floor(256 * (l - span[0]) / (span[1] - span[0]));
-                            let c0 = span[2];
-                            let c1 = span[3];
-                            pixels[i + 0] = c0[0] + Math.floor((c1[0] - c0[0]) * t / 256);
-                            pixels[i + 1] = c0[1] + Math.floor((c1[1] - c0[1]) * t / 256);
-                            pixels[i + 2] = c0[2] + Math.floor((c1[2] - c0[2]) * t / 256);
-                            //console.log("...", t, c0, c1, pixels[i], pixels[i+1], pixels[i+2]);
-                            break;
+                        let lightness = get_lightness(pixels[i + 0], pixels[i + 1], pixels[i + 2]);
+                        lightness = (lightness - light0) / (light1 - light0) * 256;
+                        let l = Math.max(0, Math.min(255, Math.floor(lightness)));
+                        for (let span of trans) {
+                            if (span[0] <= l && l <= span[1]) {
+                                let t = Math.floor(256 * (l - span[0]) / (span[1] - span[0]));
+                                let c0 = span[2];
+                                let c1 = span[3];
+                                pixels[i + 0] = c0[0] + Math.floor((c1[0] - c0[0]) * t / 256);
+                                pixels[i + 1] = c0[1] + Math.floor((c1[1] - c0[1]) * t / 256);
+                                pixels[i + 2] = c0[2] + Math.floor((c1[2] - c0[2]) * t / 256);
+                                break;
+                            }
                         }
                     }
-                }
-                scratch_ctx.putImageData(imagedata, 0, 0);
+                    scratch_ctx.putImageData(imagedata, 0, 0);
 
-                // Finally blit it onto the final canvas.  Note that we do NOT put
-                // the image data directly, since that overwrites rather than
-                // compositing
-                ctx.drawImage(
-                    scratch_canvas,
-                    0, 0, glyph.width, glyph.height,
-                    px, py, glyph.width, glyph.height);
-            }
-            else {
-                // Simple case: no translation is a straight blit
-                font.draw_glyph(glyph, ctx, px, py);
+                    // Finally blit it onto the final canvas.  Note that we do NOT put
+                    // the image data directly, since that overwrites rather than
+                    // compositing
+                    ctx.drawImage(
+                        scratch_canvas,
+                        0, 0, glyph.width, glyph.height,
+                        px, py, glyph.width, glyph.height);
+                }
+                else {
+                    // Simple case: no translation is a straight blit
+                    font.draw_glyph(glyph, ctx, px, py);
+                }
             }
         }
 

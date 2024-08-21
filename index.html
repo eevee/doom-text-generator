@@ -218,7 +218,7 @@
         flex: 1 auto;
     }
     .range-with-label output {
-        flex: 0 0 3em;
+        flex: 0 0 2em;
         margin: 0 0.5em;
         text-align: right;
     }
@@ -227,9 +227,13 @@
         display: grid;
         grid: auto-flow / max-content 1fr;
         gap: 0.5em;
+        align-items: center;
     }
     dl.twocol > dd {
         margin: 0;
+    }
+    dl.twocol > dd > select:only-child {
+        width: 100%;
     }
 
     #section-scale input[type=range] {
@@ -546,11 +550,23 @@
                 <dd class="range-with-label"><input name="scale" type="range" min="1" max="12" step="1" value="3"> <output>3×</output></dd>
                 <dt>Ke<span style="letter-spacing: -1px;">rn</span>ing</dt>
                 <dd class="range-with-label"><input name="kerning" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></dd>
-                <dt>Line spacing</dt>
+                <dt>Line gap</dt>
                 <dd class="range-with-label"><input name="line-spacing" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></dd>
                 <dt>Padding</dt>
                 <dd class="range-with-label"><input name="padding" type="range" min="0" max="32" step="1" value="0"> <output>0</output></dd>
+                <dt>Escapees</dt>
+                <dd>
+                    <select name="escapee-mode">
+                        <option value="none">Always use normal line height</option>
+                        <option value="max">Always use maximum line height</option>
+                        <option value="each">Expand to fit individual lines</option>
+                        <option value="equal" selected>Expand all lines equally</option>
+                        <option value="min-each">Shrink to fit individual lines</option>
+                        <option value="min-equal">Shrink to fit all lines equally</option>
+                    </select>
+                </dd>
             </dl>
+            <p>"Escapees" are characters like Й in the Doom Menu font, which peek above the top of the line.  May have limited effect on English text.  Use "Shrink to fit" for CWILVs.</p>
 
             <h2>Alignment</h2>
             <ul class="radioset alignment">
@@ -617,8 +633,8 @@
             <ul class="radioset translations">
                 <li><label><input name="translation" type="radio" value="" checked> Original colors</label></li>
             </ul>
-            <p>These are ZDoom's standard color translations and use the ZDoom recoloring algorithm.  Results are unlikely to be within the Doom palette.</p>
-            <p>The buttons on the right will set the background color.</p>
+            <p>These are ZDoom's standard color translations and use the ZDoom recoloring algorithm.  Results are unlikely to be within the Doom palette.  But might be close enough.</p>
+            <p>The buttons on the right set the background color.</p>
         </section>
 
         <footer>
