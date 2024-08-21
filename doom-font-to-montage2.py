@@ -1,6 +1,7 @@
 # Convert a pile-of-lumps style font to a single packed image and some JSON.
 import json
 import math
+from pathlib import Path
 import re
 import sys
 import zipfile
@@ -65,13 +66,50 @@ ffe3 e3ff e3c0 ffe3 a0ff e380 ffe3 60ff e340 ffe3 20ff e300 b038 00a9 3100 9f2a
 0015 1c00 0a1c 0000 ff8e 3cff ce43 ff6e e3ff 00e3 d400 b8a9 008a 7f00 60b0 6060
 ''')
 
+
 def main(archive_path, lump_prefix, montage_filename):
-    with open(archive_path, 'rb') as archive:
+    glyph_opaques = {}
+    playpal_bytes = DOOM2_PLAYPAL_BYTES
+
+    unicode_font = False
+    if re.fullmatch(r'(?:filter/[^/]+/)?fonts/([^/]+)/', lump_prefix):
+        unicode_font = True
+
+    def check_pk3_file(path):
+        nonlocal playpal_bytes
+        p = str(path)
+        if p.startswith(lump_prefix):
+            if unicode_font:
+                if path.name == 'font.inf':
+                    return
+                ch = chr(int(path.stem, 16))
+            else:
+                ch = chr(int(re.sub('[.][^/]*$', '', p).removeprefix(lump_prefix)))
+            glyph_opaques[ch] = path
+        if re.fullmatch('playpal([.][^/]*)?', p, re.I):
+            playpal_bytes = open_lump(path).read()
+
+    archive_path = Path(archive_path)
+    if archive_path.is_dir():
+        def open_lump(path):
+            return (archive_path / path).open('rb')
+
+        count = 0
+        for fullpath in archive_path.glob('**/*'):
+            count += 1
+            if count > 5000:
+                raise RuntimeError("way too many files here; is this really a PK3 directory?")
+
+            path = fullpath.relative_to(archive_path)
+            check_pk3_file(path)
+    else:
+        archive = archive_path.open('rb')
         magic = archive.read(4)
         archive.seek(0)
-        glyph_opaques = {}
-        playpal_bytes = DOOM2_PLAYPAL_BYTES
         if magic == b'IWAD' or magic == b'PWAD':
+            if unicode_font:
+                raise RuntimeError("WADs do not support Unicode fonts")
+
             wad = WAD.parse_file(archive)
 
             def open_lump(lump):
@@ -91,88 +129,93 @@ def main(archive_path, lump_prefix, montage_filename):
                 return z.open(info.filename)
 
             for info in z.infolist():
-                if info.filename.startswith(lump_prefix):
-                    ch = chr(int(re.sub('[.][^/]*$', '', info.filename).removeprefix(lump_prefix)))
-                    glyph_opaques[ch] = info
-                if re.fullmatch('playpal([.][^/]*)?', info.filename, re.I):
-                    playpal_bytes = z.open(info.filename).read()
+                check_pk3_file(info.filename)
 
-        palette = Playpal.parse(playpal_bytes)
+    if not glyph_opaques:
+        raise RuntimeError("No matching glyphs found")
 
-        characters = {}
-        cellw = 0
-        cellh = 0
-        for ch, opaque in sorted(glyph_opaques.items()):
-            lumpfile = open_lump(opaque)
-            p = lumpfile.tell()
-            magic = lumpfile.read(4)
-            lumpfile.seek(p)
-            offsetx, offsety = 0, 0
-            if magic == b'\x89PNG':
-                img = PIL.Image.open(lumpfile)
-                img.load()
-                for name, data in img.private_chunks:
-                    if name == b'grAb':
-                        offsetx = int.from_bytes(data[0:4], 'little', signed=True)
-                        offsety = int.from_bytes(data[4:8], 'little', signed=True)
-            else:
-                patch = DoomPatch.parse_file(lumpfile)
-                img = patch.to_pillow(palette)
-                offsetx = patch.x0
-                offsety = patch.y0
+    palette = Playpal.parse(playpal_bytes)
 
-            w, h = img.size
-            characters[ch] = dict(
-                image=img,
-                width=w,
-                height=h,
-                dx=-offsetx,
-                dy=-offsety,
-            )
-            cellw = max(cellw, w)
-            cellh = max(cellh, h)
+    characters = {}
+    cellw = 0
+    cellh = 0
+    line_height = 0
+    for ch, opaque in sorted(glyph_opaques.items()):
+        lumpfile = open_lump(opaque)
+        p = lumpfile.tell()
+        magic = lumpfile.read(4)
+        lumpfile.seek(p)
+        anchorx, anchory = 0, 0
+        if magic == b'\x89PNG':
+            img = PIL.Image.open(lumpfile)
+            img.load()
+            for name, data in img.private_chunks:
+                if name == b'grAb':
+                    anchorx = int.from_bytes(data[0:4], 'little', signed=True)
+                    anchory = int.from_bytes(data[4:8], 'little', signed=True)
+        else:
+            patch = DoomPatch.parse_file(lumpfile)
+            img = patch.to_pillow(palette)
+            anchorx = patch.x0
+            anchory = patch.y0
 
-        colct = max(1, int(math.sqrt(len(characters))))
-        rowct = math.ceil(len(characters) / colct)
-        montage = PIL.Image.new('RGBA', (colct * cellw, rowct * cellh))
-        glyphs = {}
-        minlight = 255
-        maxlight = 0
-        for i, (ch, glyph) in enumerate(characters.items()):
-            x = i % colct * cellw
-            y = i // colct * cellh
-            montage.paste(glyph['image'], (x, y))
-            glyphs[ch] = f"{glyph['width']}x{glyph['height']}+{x}+{y}"
-            if glyph['dx'] != 0 or glyph['dy'] != 0:
-                glyphs[ch] += f"@{glyph['dx']},{glyph['dy']}"
-
-            im = glyph['image']
-            if im.mode != 'RGBA':
-                im = im.convert('RGBA')
-            px = im.load()
-            for y in range(glyph['height']):
-                for x in range(glyph['width']):
-                    r, g, b, a = px[x, y]
-                    if a == 0:
-                        continue
-
-                    light = r * 0.299 + g * 0.587 + b * 0.114
-                    minlight = min(minlight, light)
-                    maxlight = max(maxlight, light)
-        if maxlight < minlight:
-            print("what", minlight, maxlight)
-            # ?????
-            minlight, maxlight = 0, 255
-
-        montage.save(montage_filename)
-        out = dict(
-            glyphs=glyphs,
-            type='montage',
-            src=montage_filename,
-            line_height=cellh,
-            lightness_range=[minlight, maxlight],
+        w, h = img.size
+        characters[ch] = dict(
+            image=img,
+            width=w,
+            height=h,
+            dx=-anchorx,
+            dy=-anchory,
         )
-        print(json.dumps(out, indent=2))
+        cellw = max(cellw, w)
+        cellh = max(cellh, h)
+        # If a glyph's anchor puts it ABOVE the top of the line, that shouldn't count against line
+        # height (although we'll have to factor it in when rendering).  If a glyph's anchor puts it
+        # BELOW the bottom of the line...  there's not much we can do about that, because we only
+        # have glyph height to tell us how tall the line is
+        line_height = max(line_height, h - anchory)
+
+    colct = max(1, int(math.sqrt(len(characters))))
+    rowct = math.ceil(len(characters) / colct)
+    montage = PIL.Image.new('RGBA', (colct * cellw, rowct * cellh))
+    glyphs = {}
+    minlight = 255
+    maxlight = 0
+    for i, (ch, glyph) in enumerate(characters.items()):
+        x = i % colct * cellw
+        y = i // colct * cellh
+        montage.paste(glyph['image'], (x, y))
+        glyphs[ch] = f"{glyph['width']}x{glyph['height']}+{x}+{y}"
+        if glyph['dx'] != 0 or glyph['dy'] != 0:
+            glyphs[ch] += f"@{glyph['dx']},{glyph['dy']}"
+
+        im = glyph['image']
+        if im.mode != 'RGBA':
+            im = im.convert('RGBA')
+        px = im.load()
+        for y in range(glyph['height']):
+            for x in range(glyph['width']):
+                r, g, b, a = px[x, y]
+                if a == 0:
+                    continue
+
+                light = r * 0.299 + g * 0.587 + b * 0.114
+                minlight = min(minlight, light)
+                maxlight = max(maxlight, light)
+    if maxlight < minlight:
+        print("what", minlight, maxlight)
+        # ?????
+        minlight, maxlight = 0, 255
+
+    montage.save(montage_filename)
+    out = dict(
+        glyphs=glyphs,
+        type='montage',
+        src=montage_filename,
+        line_height=line_height,
+        lightness_range=[minlight, maxlight],
+    )
+    print(json.dumps(out, indent=2))
 
 
 if __name__ == '__main__':
