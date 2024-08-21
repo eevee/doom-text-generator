@@ -740,7 +740,7 @@ export const DOOM_FONTS = {
       name: "Freedoom Menu",
       desc: "Font used for menu text and level names in Freedoom.  Seems to trace back to the Resurgence megawad, which credits it in the vague direction of Mechadon, so that's my best guess for who made the font.",
       creator: ["Mechadon"],
-      license: "unknown",
+      license: "bsd",
       format: "FON2",
       source: "Extracted directly from the DBIGFONT lump in freedoom2.wad",
       source_url: "https://freedoom.github.io/",
@@ -2186,6 +2186,7 @@ export const FONT_LICENSES = {
   commercial: "Commercial — This was part of, or made for, a commercial product and no one has permission to use it for anything.",
   derivative: "Commercial derivative — This was derived from a commercial work and no one had permission to make it in the first place, let alone use it for anything else.",
   freeware: "Freeware — This is original work released freely online.  It has no explicit license, but given that it's useless on its own, it seems clearly intended to be used by others.",
+  bsd: "BSD — This is explicitly licensed under the BSD license, meaning you can use it freely for any purpose, as long as you retain the copyright notice and license.",
   unknown: "Unknown — The license is unclear, unavailable, or unreliable.",
 };
 
