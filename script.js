@@ -195,8 +195,8 @@ function parse_doom_graphic(buf, palette) {
     let data = new DataView(buf);
     let width = data.getUint16(0, true);
     let height = data.getUint16(2, true);
-    let xoffset = data.getInt16(4, true);
-    let yoffset = data.getInt16(6, true);
+    let xanchor = data.getInt16(4, true);
+    let yanchor = data.getInt16(6, true);
 
     let canvas = document.createElement('canvas');
     canvas.width = width;
@@ -229,7 +229,7 @@ function parse_doom_graphic(buf, palette) {
     }
 
     ctx.putImageData(imgdata, 0, 0);
-    return [canvas, xoffset, yoffset];
+    return [canvas, xanchor, yanchor];
 }
 
 function* decode_rle(array) {
@@ -363,6 +363,35 @@ function parse_fon2(buf) {
     };
 }
 
+async function parse_image(buf, palette) {
+    let magic = string_from_buffer_ascii(buf, 0, 8);
+    if (magic === '\x89PNG\x0d\x0a\x1a\x0a') {
+        // This is a PNG already, so we can just wrap it in an image
+        let canvas = new Image;
+        let xanchor, yanchor;
+        let bytestring = string_from_buffer_ascii(buf);
+        canvas.src = 'data:image/png;base64,' + btoa(bytestring);
+        await canvas.decode();
+        // Difficulty: we would really like to support the grAb chunk, without writing a
+        // full PNG decoder in JavaScript.  So let's...  let's just...  shh...
+        let i = bytestring.indexOf('grAb');
+        if (i >= 8) {
+            let view = new DataView(buf);
+            xanchor = view.getInt32(i + 4, true);
+            yanchor = view.getInt32(i + 8, true);
+        }
+        else {
+            xanchor = 0;
+            yanchor = 0;
+        }
+        return [canvas, xanchor, yanchor];
+    }
+    else {
+        // Presume a Doom graphic
+        return parse_doom_graphic(buf, palette);
+    }
+}
+
 // "Standard" fonts I scraped myself from various places and crammed into montages
 class BuiltinFont {
     static async from_builtin(fontdef) {
@@ -483,6 +512,39 @@ class FON2Font {
         ctx.drawImage(glyph.canvas, x, y);
     }
 }
+
+
+class UnicodeFont {
+    constructor(fontdef, meta = {}) {
+        console.log(fontdef);
+        this.glyphs = fontdef.glyphs;
+        this.line_height = fontdef.line_height ?? Math.max(
+            ...Object.values(fontdef.glyphs).map(glyph => glyph.height + glyph.dy));
+        this.kerning = fontdef.kerning ?? 0;
+        this.space_width = fontdef.space_width ?? zdoom_estimate_space_width(this);
+        this.lightness_range = fontdef.lightness_range;
+        if (! this.lightness_range || this.lightness_range[0] >= this.lightness_range[1]) {
+            this.lightness_range = [0, 255];
+        }
+
+        this.meta = meta;
+        this.name = meta.name ?? "";  // XXX ???
+        this.meta.format = 'unicode';
+    }
+
+    draw_glyph(glyph, ctx, x, y) {
+        if ('x' in glyph) {
+            ctx.drawImage(
+                glyph.canvas,
+                glyph.x, glyph.y, glyph.width, glyph.height,
+                x, y, glyph.width, glyph.height);
+        }
+        else {
+            ctx.drawImage(glyph.canvas, x, y);
+        }
+    }
+}
+
 
 
 // Lil helper for finding ad-hoc fonts made of collections of lumps.
@@ -1166,21 +1228,65 @@ class BossBrain {
                 let m = path.match(/^(fonts[/][^/]+)[/]([^/.]+)([.].*)?$/);
                 if (m) {
                     let [_, fontpath, stem, ext] = m;
-                    let cp = parseInt(stem, 16);
-                    if (Number.isNaN(cp)) {
+                    let fontdef = unicode_fonts[fontpath];
+                    if (! fontdef) {
+                        fontdef = {
+                            raw_glyphs: new Map,
+                        };
+                        unicode_fonts[fontpath] = fontdef;
+                    }
+
+                    if (path.endsWith('/font.inf')) {
+                        // Cheaply parse the info file, which is just identifier keys and then some
+                        // kinda value
+                        let inf = string_from_buffer_ascii(data);
+                        inf = inf.replace(/[/][*].*[*][/]/gs, '');
+                        inf = inf.replace(/[/][/].*$/gm, '');
+                        let info = {};
+                        for (let [line] of inf.matchAll(/^(.+)$/gm)) {
+                            line = line.trim();
+                            if (line === "")
+                                continue;
+
+                            let m = line.match(/^([a-z]\w*)[ \t]+(.+)$/i);
+                            if (! m) {
+                                console.warn("Bad line in font.inf?", line);
+                                continue;
+                            }
+                            info[m[1].toLowerCase()] = m[2];
+                        }
+
+                        let kerning = parseInt(info['kerning'], 10);
+                        if (! Number.isNaN(kerning)) {
+                            fontdef.kerning = kerning;
+                        }
+                        let line_height = parseInt(info['fontheight'], 10);
+                        if (! Number.isNaN(line_height) && line_height > 0) {
+                            fontdef.line_height = line_height;
+                        }
+                        let space_width = parseInt(info['spacewidth'], 10);
+                        if (! Number.isNaN(space_width)) {
+                            fontdef.space_width = space_width;
+                        }
+                        if ('translationtype' in info && info['translationtype'].toLowerCase() === 'console') {
+                            fontdef.use_console_translation = true;
+                        }
+                        if ('cellsize' in info) {
+                            let m = info['cellsize'].match(/^(\d+)\s*,\s*(\d+)$/);
+                            if (m) {
+                                fontdef.cell_width = parseInt(m[1], 10);
+                                fontdef.cell_height = parseInt(m[2], 10);
+                            }
+                            else {
+                                console.error("Bad cellsize in font.inf?", info['cellsize']);
+                            }
+                        }
                         continue;
                     }
 
-                    if (! unicode_fonts[fontpath]) {
-                        unicode_fonts[fontpath] = {
-                            glyphs: new Map,
-                        };
-                    }
-                    if (path.endsWith('/font.inf')) {
-                        // TODO parse this, seems important
+                    if (! stem.match(/^[0-9a-f]+$/i))
                         continue;
-                    }
-                    unicode_fonts[fontpath].glyphs.set(cp, data);
+                    fontdef.raw_glyphs.set(parseInt(stem, 16), data);
                 }
 
                 if (path.match(/^playpal(?:[.][^/]*)?$/i) && data.byteLength >= 768) {
@@ -1194,8 +1300,58 @@ class BossBrain {
             }
 
             // Assemble any Unicode fonts
-            console.log("unicode fonts?", unicode_fonts);
-            // TODO
+            for (let [fontpath, fontdef] of Object.entries(unicode_fonts)) {
+                if (! fontdef.raw_glyphs.size) {
+                    console.log("Didn't find any glyphs in Unicode font", fontpath);
+                    continue;
+                }
+
+                let glyphs = {};
+                let minlight = 255;
+                let maxlight = 0;
+
+                for (let [cp, imgdata] of fontdef.raw_glyphs) {
+                    let [canvas, xanchor, yanchor] = await parse_image(imgdata.buffer);
+                    let [light0, light1] = measure_image_lightness(canvas);
+                    minlight = Math.min(minlight, light0);
+                    maxlight = Math.max(maxlight, light1);
+
+                    if (fontdef['cell_width']) {
+                        // This is a montage of fixed-size glyphs
+                        for (let y = 0; y < canvas.height; y += fontdef.cell_height) {
+                            for (let x = 0; x < canvas.width; x += fontdef.cell_width) {
+                                glyphs[String.fromCodePoint(cp)] = {
+                                    canvas, x, y,
+                                    width: fontdef.cell_width,
+                                    height: fontdef.cell_height,
+                                    dx: -xanchor,
+                                    dy: -yanchor,
+                                };
+                                cp += 1;
+                            }
+                        }
+                    }
+                    else {
+                        // This whole image is one glyph
+                        glyphs[String.fromCodePoint(cp)] = {
+                            canvas,
+                            dx: -xanchor,
+                            dy: -yanchor,
+                        };
+                    }
+                }
+
+                fontdef.glyphs = glyphs;
+                fontdef.lightness_range = [minlight, maxlight];
+
+                let ident = `${file.name}:${fontpath}`;
+                // FIXME consolidate all the font types probably, they don't meaningfully differ
+                this.fonts[ident] = new UnicodeFont(fontdef, {
+                    name: `${file.name} — ${fontpath}`,
+                    format: 'unicode',
+                });
+                found_fonts.push(ident);
+            }
         }
         else if (magic === 'FON2') {
             let ident = file.name;
@@ -1233,38 +1389,13 @@ class BossBrain {
             let minlight = 255;
             let maxlight = 0;
             for (let [cp, opaque] of catalogue) {
-                let buf = await read_lump(opaque);
-                let magic = string_from_buffer_ascii(buf, 0, 8);
-                let canvas, xoff, yoff;
-                if (magic === '\x89PNG\x0d\x0a\x1a\x0a') {
-                    // This is a PNG already, so we can just wrap it in an image
-                    canvas = new Image;
-                    let bytestring = string_from_buffer_ascii(buf);
-                    canvas.src = 'data:image/png;base64,' + btoa(bytestring);
-                    await canvas.decode();
-                    // Difficulty: we would really like to support the grAb chunk, without writing a
-                    // full PNG decoder in JavaScript.  So let's...  let's just...  shh...
-                    let i = bytestring.indexOf('grAb');
-                    if (i >= 8) {
-                        let view = new DataView(buf);
-                        xoff = view.getInt32(i + 4, true);
-                        yoff = view.getInt32(i + 8, true);
-                    }
-                    else {
-                        xoff = 0;
-                        yoff = 0;
-                    }
-                }
-                else {
-                    // Presume a Doom graphic
-                    [canvas, xoff, yoff] = parse_doom_graphic(buf, palette);
-                }
+                let [canvas, xanchor, yanchor] = await parse_image(await read_lump(opaque));
                 glyphs[String.fromCodePoint(cp)] = {
                     width: canvas.width,
                     height: canvas.height,
                     canvas,
-                    dx: -xoff,
-                    dy: -yoff,
+                    dx: -xanchor,
+                    dy: -yanchor,
                 };
 
                 let [light0, light1] = measure_image_lightness(canvas);
@@ -1275,6 +1406,7 @@ class BossBrain {
             let ident = file.name + ":" + prefix;
             this.fonts[ident] = new WADFont(glyphs, {
                 name: `${file.name} — ${prefix}*`,
+                format: 'lumps',
             });
             // XXX should proooobably pass this in
             this.fonts[ident].lightness_range = [minlight, maxlight];

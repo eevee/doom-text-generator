@@ -1646,6 +1646,7 @@ export const DOOM_FONTS = {
     space_width: 8,
     line_height: 8,
     lightness_range: [0, 255],
+    use_console_translation: true,
     meta: {
       name: "ZDoom Console",
       desc: "Font used in ZDoom's console.  I don't know where this came from; it's existed since the first commit in the Git repository, in 2006, and the older SVN repository no longer exists.",
