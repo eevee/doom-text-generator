@@ -1625,7 +1625,18 @@ class BossBrain {
             }
             return [ascent, descent];
         };
-        if (escapee_mode === 'max') {
+        if (escapee_mode === 'none') {
+            // Despite the name, we do do ONE thing here: expand the first and last lines to ensure
+            // no glyphs get cut off
+            // TODO but if there's padding, maybe we should let glyphs escape into it?
+            let [ascent, descent] = extract_ascent_descent(
+                line_infos[0].draws.map(draw => draw.glyph), font.line_height, true);
+            line_infos[0].ascent = ascent;
+            [ascent, descent] = extract_ascent_descent(
+                line_infos.at(-1).draws.map(draw => draw.glyph), font.line_height, true);
+            line_infos.at(-1).descent = descent;
+        }
+        else if (escapee_mode === 'max') {
             // Make every line as tall as possible
             let [ascent, descent] = extract_ascent_descent(
                 Object.values(font.glyphs), font.line_height, true);
@@ -1634,7 +1645,7 @@ class BossBrain {
                 line_info.descent = descent;
             }
         }
-        else if (escapee_mode !== 'none') {
+        else {
             // Actually compute how much extra ascent + descent space we need
             for (let line_info of line_infos) {
                 [line_info.ascent, line_info.descent] = extract_ascent_descent(
