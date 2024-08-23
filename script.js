@@ -1008,6 +1008,7 @@ class BossBrain {
             text: name,
             default_font: ident,
             scale: 2,
+            escapee_mode: 'min-each',
             canvas: null,
         });
         let info_button = mk('button.emoji-button', {type: 'button'}, "ℹ️");
