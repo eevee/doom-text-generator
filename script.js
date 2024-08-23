@@ -1141,8 +1141,7 @@ class BossBrain {
 
                         this.form.elements['font'].value = ident;
                         // Fire a 'change' event so state gets tidied up
-                        // FIXME uh this doesn't seem to update the .selected though
-                        let ev = new Event('change');
+                        let ev = new Event('change', { bubbles: true });
                         for (let radio of this.form.elements['font']) {
                             if (radio.checked) {
                                 radio.dispatchEvent(ev);
