@@ -363,6 +363,15 @@ function parse_fon2(buf) {
     };
 }
 
+function parse_first_playpal(buf) {
+    let palette = [];
+    let bytes = new Uint8Array(buf);
+    for (let i = 0; i < 256; i++) {
+        palette.push([bytes[i*3], bytes[i*3 + 1], bytes[i*3 + 2]]);
+    }
+    return palette;
+}
+
 async function parse_image(buf, palette) {
     let magic = string_from_buffer_ascii(buf, 0, 8);
     if (magic === '\x89PNG\x0d\x0a\x1a\x0a') {
@@ -1177,7 +1186,7 @@ class BossBrain {
         // WADs and PK3s are fairly similar (other than that only PK3s can contain unicode fonts),
         // but not QUITE similar enough to share code, alas.
         // Duplicating several lines of FON parsing is especially irritating
-        let playpal_buf;
+        let palette = DOOM2_PALETTE;  // TODO UI for choosing a different stock palette...?
         let lump_index = {};  // uppercase lump name: ArrayBuffer
         let collector = new LumpyFontCollector;
         let read_lump;  // ugh
@@ -1207,7 +1216,8 @@ class BossBrain {
                 }
 
                 if (lump.name === 'PLAYPAL' && lump.size >= 768) {
-                    playpal_buf = await file.slice(lump.offset, lump.offset + 768).arrayBuffer();
+                    let buf = await file.slice(lump.offset, lump.offset + 768).arrayBuffer();
+                    palette = parse_first_playpal(buf);
                 }
 
                 collector.scan(lump.name, lump);
@@ -1257,7 +1267,7 @@ class BossBrain {
 
                 // Look for Unicode fonts, which are at least easy to identify: they're all
                 // fonts/NAME/HHHH, with an optional font.inf in the same directory
-                let m = path.match(/^(?:filter[/][^/]+[/])?(fonts[/][^/]+)[/]([^/.]+)([.].*)?$/);
+                let m = path.match(/^((?:filter[/][^/]+[/])?fonts[/][^/]+)[/]([^/.]+)([.].*)?$/);
                 if (m) {
                     let [_, fontpath, stem, ext] = m;
                     let fontdef = unicode_fonts[fontpath];
@@ -1322,7 +1332,7 @@ class BossBrain {
                 }
 
                 if (path.match(/^playpal(?:[.][^/]*)?$/i) && data.byteLength >= 768) {
-                    playpal_buf = data;
+                    palette = parse_first_playpal(data);
                 }
 
                 // For a PK3, lumpy fonts should be in graphics/
@@ -1343,7 +1353,7 @@ class BossBrain {
                 let maxlight = 0;
 
                 for (let [cp, imgdata] of fontdef.raw_glyphs) {
-                    let [canvas, xanchor, yanchor] = await parse_image(imgdata.buffer);
+                    let [canvas, xanchor, yanchor] = await parse_image(imgdata.buffer, palette);
                     let [light0, light1] = measure_image_lightness(canvas);
                     minlight = Math.min(minlight, light0);
                     maxlight = Math.max(maxlight, light1);
@@ -1367,6 +1377,8 @@ class BossBrain {
                         // This whole image is one glyph
                         glyphs[String.fromCodePoint(cp)] = {
                             canvas,
+                            width: canvas.width,
+                            height: canvas.height,
                             dx: -xanchor,
                             dy: -yanchor,
                         };
@@ -1397,24 +1409,7 @@ class BossBrain {
         }
 
         // OK, all that's left from here are lump clumps
-        let palette;  // lazy-load this
         for (let [prefix, catalogue] of collector.get_results()) {
-            // Extract the palette first, if we saw one
-            if (! palette) {
-                if (playpal_buf) {
-                    palette = [];
-                    let bytes = new Uint8Array(playpal_buf);
-                    for (let i = 0; i < 256; i++) {
-                        palette.push([bytes[i*3], bytes[i*3 + 1], bytes[i*3 + 2]]);
-                    }
-                }
-                if (! palette) {
-                    // Default to Doom 2 for now I guess
-                    // TODO UI for choosing a different stock palette...?
-                    palette = DOOM2_PALETTE;
-                }
-            }
-
             // Convert the map into a table of glyphs and decode the image data
             console.log("looks like we have a font:", prefix);
             let glyphs = {};
@@ -1423,9 +1418,9 @@ class BossBrain {
             for (let [cp, opaque] of catalogue) {
                 let [canvas, xanchor, yanchor] = await parse_image(await read_lump(opaque));
                 glyphs[String.fromCodePoint(cp)] = {
+                    canvas,
                     width: canvas.width,
                     height: canvas.height,
-                    canvas,
                     dx: -xanchor,
                     dy: -yanchor,
                 };
