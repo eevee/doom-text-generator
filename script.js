@@ -1,6 +1,5 @@
 // TODO:
-// get the extended characters from gzdoom
-// more fonts?  some from popular megawads maybe?  hacx?  freedoom?
+// fold in gzdoom's game_support.pk3 font extensions, which have cyrillic for most of the canon fonts
 // someone asked for build + quake fonts
 // someday, bbcode...
 // better missing char handling
@@ -12,14 +11,10 @@
 // - parse TEXTCOLO
 // force into doom (heretic, hexen, ...) palette?  whoof
 // drag and drop for wads
-// pk3 support
 // make translation more fast
 // - preconvert default translation?
 // allow using different fonts in one message (whoof)
-// fix accents and other uses of too-high letters
-// why does "doom menu" have massive descender space whereas "doom menu small caps" does not
 // allow inverting colors when translating (useful for e.g. zdoom 2012)
-// fix 04FONTOK, wxyz are jank
 // fix inferring line height from a loaded font
 //
 // TODO nice to do while i'm here:
