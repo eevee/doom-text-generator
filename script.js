@@ -516,7 +516,6 @@ class FON2Font {
 
 class UnicodeFont {
     constructor(fontdef, meta = {}) {
-        console.log(fontdef);
         this.glyphs = fontdef.glyphs;
         this.line_height = fontdef.line_height ?? Math.max(
             ...Object.values(fontdef.glyphs).map(glyph => glyph.height + glyph.dy));
@@ -1258,7 +1257,7 @@ class BossBrain {
 
                 // Look for Unicode fonts, which are at least easy to identify: they're all
                 // fonts/NAME/HHHH, with an optional font.inf in the same directory
-                let m = path.match(/^(fonts[/][^/]+)[/]([^/.]+)([.].*)?$/);
+                let m = path.match(/^(?:filter[/][^/]+[/])?(fonts[/][^/]+)[/]([^/.]+)([.].*)?$/);
                 if (m) {
                     let [_, fontpath, stem, ext] = m;
                     let fontdef = unicode_fonts[fontpath];
