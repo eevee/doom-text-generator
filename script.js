@@ -1627,7 +1627,6 @@ class BossBrain {
         // XXX handle error?
 
         // Compute some layout metrics first
-        let draws = [];
         let line_infos = [];
         let y = 0;
         for (let line of lines) {
@@ -1638,11 +1637,11 @@ class BossBrain {
             let prev_glyph_was_space = false;
             let line_info = {
                 draws: [],
-                width: 0,  // updated at the end of the line
+                width: null,  // set at the end of the line
                 height: font.line_height,
                 ascent: 0,
                 descent: 0,
-                x0: 0,  // updated later
+                x0: null,  // set during alignment
                 y0: y,
             };
             line_infos.push(line_info);
@@ -1694,7 +1693,7 @@ class BossBrain {
                 let is_space = (ch === ' ' || ch === '\t');
                 if (is_space && ! prev_glyph_was_space) {
                     last_word_ending = {
-                        next_index: draws.length,
+                        next_index: line_info.draws.length,
                         x: x,
                     };
                 }
@@ -1741,29 +1740,30 @@ class BossBrain {
                     line_info.width = last_word_ending.x;
                     y += line_info.height + line_spacing;
 
-                    // Move this word's draws onto a new line, skipping any intermediate spaces
+                    // Skip any spaces after the end of the previous word
                     let i0 = last_word_ending.next_index;
                     while (i0 < line_info.draws.length && line_info.draws[i0].is_space) {
                         line_info.draws.splice(i0, 1);
                     }
+                    // Break all subsequent glyphs onto a new line
                     let old_line_info = line_info;
                     line_info = {
                         draws: old_line_info.draws.splice(i0),
-                        width: 0,
+                        width: null,
                         height: font.line_height,
                         ascent: 0,
                         descent: 0,
-                        x0: 0,
+                        x0: null,
                         y0: y,
                     };
                     line_infos.push(line_info);
-                    // Shift them back to the start of the line
+                    // Shift them back horizontally to the start of the line
                     let dx = line_info.draws[0].x;
                     for (let draw of line_info.draws) {
                         draw.x -= dx;
                     }
 
-                    // Update our current x position, discarding any kerning, and continue
+                    // Update our current x position and continue
                     x -= dx;
                     last_word_ending = null;
                 }
