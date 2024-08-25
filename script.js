@@ -1788,6 +1788,14 @@ class BossBrain {
                 ascent = Math.max(0, ascent);
                 descent = Math.max(0, descent);
             }
+            else {
+                if (ascent === -Infinity) {
+                    ascent = 0;
+                }
+                if (descent === -Infinity) {
+                    descent = 0;
+                }
+            }
             return [ascent, descent];
         };
         if (escapee_mode === 'none') {
