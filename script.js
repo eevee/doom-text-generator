@@ -1166,10 +1166,8 @@ class BossBrain {
             }
             else {
                 output_el.append(mk('p.-failure', `${file.name} — ${result.reason}`));
-                if (result.reason.constructor !== Error) {
-                    // Oh this is a real error
-                    console.error(result.reason);
-                }
+                // Log it in case there's a real error
+                console.error(result.reason);
             }
         }
     }
@@ -1202,8 +1200,8 @@ class BossBrain {
                     await file.slice(lump.offset, lump.offset + 4).arrayBuffer());
                 if (magic === 'FON2') {
                     let ident = `${file.name}:${lump.name}`;
-                    let buf = file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
-                    this.fonts[ident] = new FON2Font(await file.arrayBuffer(), {
+                    let buf = await file.slice(lump.offset, lump.offset + lump.size).arrayBuffer();
+                    this.fonts[ident] = new FON2Font(buf, {
                         name: `${file.name} — ${lump.name}`,
                     });
                     found_fonts.push(ident);
@@ -1411,7 +1409,7 @@ class BossBrain {
             let minlight = 255;
             let maxlight = 0;
             for (let [cp, opaque] of catalogue) {
-                let [canvas, xanchor, yanchor] = await parse_image(await read_lump(opaque));
+                let [canvas, xanchor, yanchor] = await parse_image(await read_lump(opaque), palette);
                 glyphs[String.fromCodePoint(cp)] = {
                     canvas,
                     width: canvas.width,
