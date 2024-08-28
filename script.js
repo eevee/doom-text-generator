@@ -79,10 +79,18 @@ function random_choice(list) {
 }
 
 function random_color(list) {
-    let r = random_choice('0369cf');
-    let g = random_choice('0369cf');
-    let b = random_choice('0369cf');
-    return `#${r}${r}${g}${g}${b}${b}`;
+    return [
+        Math.floor(Math.random() * 256),
+        Math.floor(Math.random() * 256),
+        Math.floor(Math.random() * 256),
+    ];
+}
+
+function format_color(rgb) {
+    return ('#'
+        + rgb[0].toString(16).padStart(2, '0')
+        + rgb[1].toString(16).padStart(2, '0')
+        + rgb[2].toString(16).padStart(2, '0'));
 }
 
 function get_lightness(r, g, b) {
@@ -1247,8 +1255,8 @@ class BossBrain {
 
             // PK3s might contain any of:
             // - Single-lump font formats (e.g. FON2)
-            // - Unicode fonts, a directory /fonts/foo containing images (TODO)
-            // - A big ol' pile of Doom graphics used implicitly (TODO ugh)
+            // - Unicode fonts, a directory /fonts/foo containing images
+            // - A big ol' pile of Doom graphics used implicitly
             // - Something vastly more complicated using FONTDEFS (TODO TODO TODO)
             let unicode_fonts = {};
             for (let [path, data] of Object.entries(contents)) {
@@ -1464,11 +1472,13 @@ class BossBrain {
         else if (r < 0.4) {
             let custom = random_choice(this.custom_translations);
             this.form.elements['translation'].value = custom;
-            this.form.elements[`${custom}a`].value = random_color();
-            this.form.elements[`${custom}c`].value = random_color();
+            let colors = [random_color(), random_color(), random_color()];
+            colors.sort((a, b) => get_lightness(...a) - get_lightness(...b));
+            this.form.elements[`${custom}a`].value = format_color(colors[0]);
+            this.form.elements[`${custom}b`].value = format_color(colors[1]);
+            this.form.elements[`${custom}c`].value = format_color(colors[2]);
             if (Math.random() < 0.5) {
                 this.form.elements[`${custom}mid`].value = true;
-                this.form.elements[`${custom}b`].value = random_color();
             }
             else {
                 this.form.elements[`${custom}mid`].value = false;
