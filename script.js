@@ -78,6 +78,13 @@ function random_choice(list) {
     return list[Math.floor(Math.random() * list.length)];
 }
 
+function random_color(list) {
+    let r = random_choice('0369cf');
+    let g = random_choice('0369cf');
+    let b = random_choice('0369cf');
+    return `#${r}${r}${g}${g}${b}${b}`;
+}
+
 function get_lightness(r, g, b) {
     return r * 0.299 + g * 0.587 + b * 0.114;
 }
@@ -1444,13 +1451,32 @@ class BossBrain {
         let group = random_choice(SAMPLE_MESSAGES);
         this.form.elements['text'].value = random_choice(group.messages);
 
-        this.form.elements['font'].value = group.font ?? random_choice(Object.keys(DOOM_FONTS));
+        let font = group.font;
+        if (! font || Math.random() < 0.25) {
+            font = random_choice(Object.keys(DOOM_FONTS));
+        }
+        this.form.elements['font'].value = font;
 
-        if (Math.random() < 0.2) {
+        let r = Math.random();
+        if (r < 0.2) {
             this.form.elements['translation'].value = '';
         }
+        else if (r < 0.4) {
+            let custom = random_choice(this.custom_translations);
+            this.form.elements['translation'].value = custom;
+            this.form.elements[`${custom}a`].value = random_color();
+            this.form.elements[`${custom}c`].value = random_color();
+            if (Math.random() < 0.5) {
+                this.form.elements[`${custom}mid`].value = true;
+                this.form.elements[`${custom}b`].value = random_color();
+            }
+            else {
+                this.form.elements[`${custom}mid`].value = false;
+            }
+            this.update_custom_translation(custom);
+        }
         else {
-            this.form.elements['translation'].value = random_choice(Object.keys(this.translations));
+            this.form.elements['translation'].value = random_choice(Object.keys(ZDOOM_TRANSLATIONS));
         }
 
         this._update_all_radiosets();
