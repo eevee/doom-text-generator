@@ -1680,10 +1680,10 @@ class BossBrain {
 
             let character_regex;
             if (syntax === 'acs') {
-                character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./g;
+                character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./gu;
             }
             else {
-                character_regex = /./g;
+                character_regex = /./gu;
             }
             let match;
             while (match = character_regex.exec(line)) {
