@@ -1683,7 +1683,7 @@ class BossBrain {
                 character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./g;
             }
             else {
-                character_regex = /./g;
+                character_regex = /./gu;
             }
             let match;
             while (match = character_regex.exec(line)) {
