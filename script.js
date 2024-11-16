@@ -13,6 +13,7 @@
 // - convert between acs and bbcode?
 // - click color buttons to insert at cursor, or set selection color correctly, depending on syntax?
 // - [color] tag that accepts a hex code?
+// oh fuck, load a mapinfo and autogen the cwvils????  does mapinfo support author?
 // add a "word wrap" sub-checkbox that makes the image exactly that size
 // better missing char handling
 // refreshing loses the selected translation
@@ -423,8 +424,60 @@ async function parse_image(buf, palette) {
     }
 }
 
+
+const PROBABLY_ON_BASELINE = 'ABCDEFGHIJKLMNOPRSTUVWXYZabcdefhiklmnorstuvwxz'.split('');
+
+class Font {
+    constructor() {}
+
+    // FIXME this doesn't alllways work -- consider nightmare font, heretic has weird descenders, and
+    // even duke nukem atomic has a descender on the A.  so...  say it explicitly for builtins?  try a
+    // bunch of letters and pick the average??
+    detect_baseline() {
+        this.baseline = this.line_height;
+
+        for (let ch of PROBABLY_ON_BASELINE) {
+            if (! (ch in this.glyphs))
+                continue;
+
+            // Use the first capital letter we find, and trim off any empty space at the bottom
+            let glyph = this.glyphs[ch];
+            this.baseline = Math.max(0, glyph.dy) + glyph.height;
+            let ctx;
+            if (glyph.canvas) {
+                ctx = glyph.canvas.getContext('2d');
+            }
+            else {
+                let canvas = document.createElement('canvas');
+                canvas.width = glyph.width;
+                canvas.height = glyph.height;
+                ctx = canvas.getContext('2d');
+                this.draw_glyph(glyph, ctx, 0, 0);
+            }
+            let pixels = ctx.getImageData(0, 0, glyph.width, glyph.height).data;
+            for (let y = glyph.height - 1; y >= 0; y--) {
+                let is_row_blank = true;
+                for (let x = 0; x < glyph.width; x++) {
+                    if (pixels[(y * glyph.width + x) * 4 + 3] !== 0) {
+                        is_row_blank = false;
+                        break;
+                    }
+                }
+                if (is_row_blank) {
+                    this.baseline = Math.max(0, glyph.dy) + y;
+                }
+                else {
+                    break;
+                }
+            }
+
+            break;
+        }
+    }
+}
+
 // "Standard" fonts I scraped myself from various places and crammed into montages
-class BuiltinFont {
+class BuiltinFont extends Font {
     static async from_builtin(fontdef) {
         let montage = new Image;
         montage.src = fontdef.src;
@@ -433,6 +486,9 @@ class BuiltinFont {
     }
 
     constructor(fontdef, montage) {
+        super();
+        this.montage = montage;
+
         this.glyphs = {};
         // Decode metrics from WxH+X+Y into, like, numbers
         for (let [ch, metrics] of Object.entries(fontdef.glyphs)) {
@@ -453,11 +509,10 @@ class BuiltinFont {
         this.line_height = fontdef.line_height;
         this.kerning = fontdef.kerning;
         this.lightness_range = fontdef.lightness_range;
+        this.detect_baseline();
 
         this.meta = fontdef.meta;
         this.name = fontdef.meta.name;
-
-        this.montage = montage;
     }
 
     draw_glyph(glyph, ctx, x, y) {
@@ -481,8 +536,9 @@ function zdoom_estimate_space_width(partial_font) {
 }
 
 // Font loaded from a user-supplied WAD
-class WADFont {
+class WADFont extends Font {
     constructor(glyphs, meta = {}) {
+        super();
         this.glyphs = glyphs;
 
         // Hurriedly invent some metrics
@@ -506,6 +562,7 @@ class WADFont {
         // the global slider for now (since mixing fonts doesn't work yet)
         this.kerning = 0;
         this.lightness_range = [0, 255];  // TODO can just get from the palette?  or do i need the actual lightness of the colors that get used?  urgh
+        this.detect_baseline();
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
@@ -518,7 +575,7 @@ class WADFont {
 }
 
 
-class FON2Font {
+class FON2Font extends Font {
     static async from_builtin(fontdef) {
         let response = await fetch(fontdef.src);
         let buf = await response.arrayBuffer();
@@ -526,6 +583,7 @@ class FON2Font {
     }
 
     constructor(fon2_buf, meta = {}) {
+        super();
         let ret = parse_fon2(fon2_buf);
 
         this.glyphs = ret.glyphs;
@@ -533,6 +591,7 @@ class FON2Font {
         this.kerning = ret.kerning ?? 0;
         this.space_width = zdoom_estimate_space_width(this);
         this.lightness_range = ret.lightness_range;
+        this.detect_baseline();
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
@@ -545,8 +604,9 @@ class FON2Font {
 }
 
 
-class UnicodeFont {
+class UnicodeFont extends Font {
     constructor(fontdef, meta = {}) {
+        super();
         this.glyphs = fontdef.glyphs;
         this.line_height = fontdef.line_height ?? Math.max(
             ...Object.values(fontdef.glyphs).map(glyph => glyph.height + glyph.dy));
@@ -556,6 +616,7 @@ class UnicodeFont {
         if (! this.lightness_range || this.lightness_range[0] >= this.lightness_range[1]) {
             this.lightness_range = [0, 255];
         }
+        this.detect_baseline();
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
@@ -1839,7 +1900,7 @@ class BossBrain {
                         continue;
                 }
 
-                line_info.draws.push({font, glyph, x, translation, is_space});
+                line_info.draws.push({font, glyph, x, y: 0, translation, is_space});
                 x += glyph.width;
 
                 if (! is_space && wrap !== null && x > wrap && last_word_ending !== null) {
@@ -1885,16 +1946,26 @@ class BossBrain {
         // Figure out the height and y-position of each line
         let y = 0;
         for (let line_info of line_infos) {
-            let line_height = 0;
+            let line_height_top = 0;
+            let line_height_bottom = 0;
+            for (let draw of line_info.draws) {
+                line_height_top = Math.max(line_height_top, draw.font.baseline);
+                line_height_bottom = Math.max(line_height_bottom, draw.font.line_height - draw.font.baseline);
+            }
+
+            let line_height = line_height_top + line_height_bottom;
+            line_info.height = line_height;
+
             let ascent = -Infinity;
             let descent = -Infinity;
             for (let draw of line_info.draws) {
-                line_height = Math.max(line_height, draw.font.line_height);
+                // Shove everything down to the baseline
+                draw.y = line_height_top - draw.font.baseline;
+                // TODO unclear how these factor in but also they're not used yet anyway
                 ascent = Math.max(ascent, -draw.glyph.dy);
                 descent = Math.max(descent, draw.glyph.height + draw.glyph.dy - draw.font.line_height);
             }
 
-            line_info.height = line_height;
             line_info.y0 = y;
 
             line_info.ascent = ascent;
@@ -1998,7 +2069,7 @@ class BossBrain {
             for (let draw of line_info.draws) {
                 let glyph = draw.glyph;
                 let px = line_info.x0 + (glyph.dx || 0) + draw.x;
-                let py = line_info.y0 + (glyph.dy || 0);
+                let py = line_info.y0 + (glyph.dy || 0) + draw.y;
                 if (draw.translation) {
                     // Argh, we need to translate
                     let transdef = this.translations[draw.translation];
