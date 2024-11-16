@@ -13,6 +13,14 @@
         padding: 0;
         list-style: none;
     }
+    ul.regular {
+        list-style: disc;
+        margin: 1em 0;
+        padding-left: 1em;
+    }
+    ul.regular li + li {
+        margin-top: 1em;
+    }
     input, select, button {
         vertical-align: baseline;
         font-size: inherit;
@@ -43,15 +51,18 @@
         line-height: 1;
         vertical-align: middle;
     }
+    code {
+        color: hsl(270deg, 40%, 50%);
+    }
 
     html {
         height: 100%;
+        font-size: 16px;
     }
     body {
         display: flex;
         flex-direction: column;
 
-        font-size: 20px;
         height: 100%;
         margin: 0;
         line-height: 1.33;
@@ -380,16 +391,21 @@
         max-width: 90vw;
         max-height: 90vh;
         margin: 0;
+        padding: 1rem;
         border: 1px solid #999;
         background: white;
-        box-shadow: 0 2px 4px #0004;
+        box-shadow: 0 2px 4px #0004, inset 0 0 0 0.25rem #eee;
     }
     dialog::backdrop {
         background: hsla(225, 20%, 75%, 0.5);
     }
     dialog h1 {
-        margin: 0 0 0.5rem;
+        font-size: 1.25em;
+        margin: -1rem -1rem 0.5rem;
+        padding: 0.25rem;
         text-align: center;
+        color: #333;
+        background: #eee;
     }
     dialog h1 img {
         display: block;
@@ -448,6 +464,9 @@
     }
     ol.character-set > li.-missing {
         background: none;
+    }
+    dialog > :last-child {
+        margin-bottom: 0;
     }
 
     /* Confirmation that you actually copied */
@@ -605,15 +624,21 @@
 
             <h2>Syntax</h2>
             <ul class="radioset syntax">
-                <li><label><input name="syntax" type="radio" value="none" checked> Plain text</label></li>
-                <li>
-                    <label><input name="syntax" type="radio" value="acs"> ACS string escaping</label>
-                    <p>Allows changing the color via <code>\cX</code> or <code>\c[NAME]</code> sequences.  Limited support for other escape characters.</p>
-                </li>
-                <li>
-                    <label><input name="syntax" type="radio" value="bbcode"> BBcode</label>
-                    <p>[font], [color], [gap], [[, ]]</p>
-                </li>
+                <li><label>
+                        <input name="syntax" type="radio" value="none" checked>
+                        <button class="emoji-button" type="button" data-dialog-id="help-syntax-plain">ℹ️</button>
+                        Plain text
+                </label></li>
+                <li><label>
+                        <input name="syntax" type="radio" value="acs">
+                        <button class="emoji-button" type="button" data-dialog-id="help-syntax-acs">ℹ️</button>
+                        ACS string escapes
+                </label></li>
+                <li><label>
+                        <input name="syntax" type="radio" value="bbcode">
+                        <button class="emoji-button" type="button" data-dialog-id="help-syntax-bbcode">ℹ️</button>
+                        BBcode
+                </label></li>
             </ul>
 
             <h2>Custom color setup</h2>
@@ -656,6 +681,43 @@
 
         <ol class="character-set --ascii"></ol>
         <ol class="character-set"></ol>
+    </dialog>
+    <dialog id="help-syntax-plain">
+        <button type="button" class="emoji-button -close" autofocus>❌</button>
+        <h1>plain text</h1>
+        <p>No special behavior.  Whatever you type is exactly what gets rendered.</p>
+    </dialog>
+    <dialog id="help-syntax-acs">
+        <button type="button" class="emoji-button -close" autofocus>❌</button>
+        <h1>ACS string escapes</h1>
+        <p>More or less compatible with ZDoom's ACS <a href="https://zdoom.org/wiki/Print">Print</a> function.</p>
+        <p>The main use for this is to easily change colors with <code>\c</code> sequences, which are listed in the color table.</p>
+        <p>Full list of supported escapes:</p>
+        <ul class="regular">
+            <li><code>\cX</code> — Set the color, using a letter to identify a standard translation.  <!--TODO As an extension, custom translations can be identified by number. --></li>
+            <li><code>\c[NAME]</code> — Set the color by name.</li>
+            <li><code>\x00</code> — Insert a Latin-1 character using a two-digit hex code.</li>
+            <li><code>\000</code> — Insert a Latin-1 character using a three-digit octal code.  This is some ancient C nonsense.  Don't use it.</li>
+            <li><code>\\</code> — Insert a literal backslash.</li>
+            <li><code>\n</code> — Insert a line break.</li>
+            <li><code>\"</code> — Insert a quotation mark.</li>
+        </ul>
+    </dialog>
+    <dialog id="help-syntax-bbcode">
+        <button type="button" class="emoji-button -close" autofocus>❌</button>
+        <h1>bbcode</h1>
+        <p>Uses HTML-like tags, with square brackets, like so: <code>[font=doom menu]Ultra-Violence[/font]</code>.</p>
+        <p>Tags don't <em>need</em> to be closed (they're assumed to all close at the end of the message), but if you do close them, they have to nest correctly — that is, close the innermost tag first.</p>
+        <p>Use <code>[[</code> or <code>]]</code> for a literal square bracket.</p>
+        <p>Supported tags:</p>
+        <ul class="regular">
+            <!-- TODO
+            <li><code>[color=...]</code> — Set the color.  Argument is the name of a translation in the "color" list, the word <code>none</code>, or a hex code in the form <code>#rrggbb</code> (in which case a translation will be auto-generated based on it).</li>
+            <li><code>[kerning=...]</code> — Set the extra horizontal space between characters.  Argument is a positive or negative integer.</li>
+            <li><code>[spacing=...]</code> — Set the extra vertical space between lines.  Argument is a positive or negative integer.  Note that this only affects line breaks that occur inside the tag, whether physical or due to word wrap.</li>
+            -->
+            <li><code>[font=...]</code> — Set the font.  Fonts are identified by their display names, and the first font that contains all the given words is chosen.  For example, <code>[font=jen b]</code> will select Jenocide Big.</li>
+        </ul>
     </dialog>
 </body>
 </html>

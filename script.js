@@ -949,7 +949,12 @@ class BossBrain {
 
         // Dialogs
         this.font_info_dialog = document.querySelector('#font-info-dialog');
-        this.font_info_dialog.querySelector('button.-close').addEventListener('click', ev => {
+        for (let dialog_button of document.querySelectorAll('button[data-dialog-id]')) {
+            dialog_button.addEventListener('click', ev => {
+                document.getElementById(dialog_button.getAttribute('data-dialog-id')).showModal();
+            });
+        }
+        document.querySelector('dialog button.-close').addEventListener('click', ev => {
             ev.target.closest('dialog').close();
         });
     }
