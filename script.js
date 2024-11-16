@@ -2,6 +2,18 @@
 // fold in gzdoom's game_support.pk3 font extensions, which have cyrillic for most of the canon fonts
 // someone asked for build + quake fonts
 // someday, bbcode...
+// - show errors better
+// - line spacing
+// - color
+// - kerning
+// - explicit offsets maybe?
+// - documentation
+// - attempt to handle baseline
+// - allow setting baseline for custom fonts (default to bottom)  (OH, autodetect, holy fuck)
+// - convert between acs and bbcode?
+// - click color buttons to insert at cursor, or set selection color correctly, depending on syntax?
+// - [color] tag that accepts a hex code?
+// add a "word wrap" sub-checkbox that makes the image exactly that size
 // better missing char handling
 // refreshing loses the selected translation
 // aspect ratio correction?
@@ -634,6 +646,9 @@ class LumpyFontCollector {
 }
 
 
+class BBCodeError extends Error {}
+
+
 class BossBrain {
     constructor() {
         // Visible canvas on the actual page
@@ -643,13 +658,14 @@ class BossBrain {
 
         this.form = document.querySelector('form');
         this.fonts = {};
+        this.font_order = [];  // for [font] searching by order
 
         this.init_form();
     }
 
     async init() {
         let promises = [];
-        for (let [fontname, fontdef] of Object.entries(DOOM_FONTS)) {
+        for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
             let promise;
             if (fontdef.type === 'fon2') {
                 promise = FON2Font.from_builtin(fontdef);
@@ -659,7 +675,7 @@ class BossBrain {
             }
             promises.push(promise.then(font => {
                 font.is_builtin = true;
-                this.fonts[fontname] = font;
+                this.fonts[ident] = font;
             }));
         }
 
@@ -1022,6 +1038,7 @@ class BossBrain {
     }
 
     add_font_to_list(ident, name) {
+        this.font_order.push(ident);
         let name_canvas = this.render_text({
             text: name,
             default_font: ident,
@@ -1604,7 +1621,7 @@ class BossBrain {
     render_text(args) {
         let text = args.text;
         let syntax = args.syntax;
-        if (syntax !== 'acs') {
+        if (syntax !== 'acs' && syntax !== 'bbcode') {
             syntax = 'none';
         }
         let scale = args.scale || 1;
@@ -1650,73 +1667,133 @@ class BossBrain {
             text = text.replace(/\\\n/g, "").replace(/\\n/g, "\n");
         }
 
-        let lines = text.split('\n');
-
         let font = this.fonts[default_font];
+        let translation = default_translation;
+        let set_prop = (key, value) => {
+            let prev = null;
+            if (key === 'font') {
+                prev = font;
+                font = value;
+            }
+            return prev;
+        };
+
+        let character_regex;
+        if (syntax === 'acs') {
+            character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./gu;
+        }
+        else if (syntax === 'bbcode') {
+            character_regex = /\[(\w+)(?:=([^\[\]]+))?\]|\[\/(\w+)\]|(\[\[|\]\])|./gu;
+        }
+        else {
+            character_regex = /./gu;
+        }
+        let tag_stack = [];
         // XXX handle error?
 
-        // Compute some layout metrics first
+        // Lay text out into lines first, dealing with formatting along the way
+        let lines = text.split('\n');
         let line_infos = [];
-        let y = 0;
         for (let line of lines) {
-            // Note: with ACS, the color reverts at the end of every line
-            let translation = default_translation;
+            // Note: with ACS, the color reverts at the end of every (physical!) line
+            if (syntax === 'acs') {
+                translation = default_translation;
+            }
             let x = 0;
             let last_word_ending = null;
             let prev_glyph_was_space = false;
             let line_info = {
                 draws: [],
                 width: null,  // set at the end of the line
-                height: font.line_height,
+                height: null,  // set in the line height pass
                 ascent: 0,
                 descent: 0,
                 x0: null,  // set during alignment
-                y0: y,
+                y0: null,  // set in the line height pass
             };
             line_infos.push(line_info);
-            // TODO line height may need adjustment if there's a character that extends above the top of the line
-            // TODO options for line height?  always use min height, default, equal height, always
-            // use max height?
 
-            let character_regex;
-            if (syntax === 'acs') {
-                character_regex = /\\c\[(.*?)\]|\\c(.)|\\([0-7]{3})|\\x([0-9a-fA-F]{2})|\\([\\"])|./gu;
-            }
-            else {
-                character_regex = /./gu;
-            }
             let match;
             while (match = character_regex.exec(line)) {
                 let ch = match[0];
-                if (match[1] !== undefined) {
-                    // ACS translation by name
-                    // TODO this fudges the aliasing a bit
-                    translation = match[1].toLowerCase().replace(/ /g, '').replace(/grey/g, 'gray');
-                    if (translation === 'untranslated') {
-                        translation = null;
+                if (syntax === 'acs') {
+                    if (match[1] !== undefined) {
+                        // ACS translation by name
+                        // TODO this fudges the aliasing a bit
+                        translation = match[1].toLowerCase().replace(/ /g, '').replace(/grey/g, 'gray');
+                        if (translation === 'untranslated') {
+                            translation = null;
+                        }
+                        else if (this.translations[translation] === undefined) {
+                            // TODO warn?
+                            translation = null;
+                        }
+                        continue;
                     }
-                    else if (this.translations[translation] === undefined) {
-                        // TODO warn?
-                        translation = null;
+                    else if (match[2] !== undefined) {
+                        // ACS translation code
+                        translation = ZDOOM_ACS_TRANSLATION_CODES[match[2]];
+                        continue;
                     }
-                    continue;
+                    else if (match[3] !== undefined) {
+                        // Octal escape
+                        ch = String.fromCodePoint(parseInt(match[3], 8));
+                    }
+                    else if (match[4] !== undefined) {
+                        // Hex escape
+                        ch = String.fromCodePoint(parseInt(match[4], 16));
+                    }
+                    else if (match[5] !== undefined) {
+                        // Literal escape (\\ or \")
+                        ch = match[5];
+                    }
                 }
-                else if (match[2] !== undefined) {
-                    // ACS translation code
-                    translation = ZDOOM_ACS_TRANSLATION_CODES[match[2]];
-                    continue;
-                }
-                else if (match[3] !== undefined) {
-                    // Octal escape
-                    ch = String.fromCodePoint(parseInt(match[3], 8));
-                }
-                else if (match[4] !== undefined) {
-                    // Hex escape
-                    ch = String.fromCodePoint(parseInt(match[4], 16));
-                }
-                else if (match[5] !== undefined) {
-                    // Literal escape (\\ or \")
-                    ch = match[5];
+                else if (syntax === 'bbcode') {
+                    if (match[1] !== undefined) {
+                        // Opening tag with optional argument
+                        let tag = match[1];
+                        let arg = match[2];
+                        if (tag === 'font') {
+                            // Find a font -- first one that contains all the arg's words
+                            let tokens = arg.toLowerCase().trim().split(/\s+/u);
+                            if (tokens.length === 0 || tokens[0] === "")
+                                throw BBCodeError(match);
+                            let new_font = null;
+                            for (let ident of this.font_order) {
+                                let font = this.fonts[ident];
+                                if (font && tokens.every(token => font.name.toLowerCase().includes(token))) {
+                                    new_font = font;
+                                    break;
+                                }
+                            }
+                            if (new_font) {
+                                arg = new_font;
+                            }
+                            else {
+                                throw BBCodeError;
+                            }
+                        }
+
+                        let old_value = set_prop(tag, arg);
+                        if (old_value === null)
+                            throw BBCodeError(match);
+                        tag_stack.push([tag, old_value]);
+                    }
+                    else if (match[3] !== undefined) {
+                        // Closing tag -- must match last opening tag
+                        if (tag_stack.length > 0 && tag_stack.at(-1)[0] === match[3]) {
+                            let popped = tag_stack.pop();
+                            set_prop(...popped);
+                            continue;
+                        }
+                        else {
+                            throw BBCodeError(match);
+                        }
+                    }
+                    else if (match[4] !== undefined) {
+                        // Double bracket for escaping
+                        ch = match[4][0];
+                    }
                 }
 
                 let is_space = (ch === ' ' || ch === '\t');
@@ -1757,7 +1834,7 @@ class BossBrain {
                         continue;
                 }
 
-                line_info.draws.push({glyph, x, translation, is_space});
+                line_info.draws.push({font, glyph, x, translation, is_space});
                 x += glyph.width;
 
                 if (! is_space && wrap !== null && x > wrap && last_word_ending !== null) {
@@ -1767,7 +1844,6 @@ class BossBrain {
 
                     // End the current line
                     line_info.width = last_word_ending.x;
-                    y += line_info.height + line_spacing;
 
                     // Skip any spaces after the end of the previous word
                     let i0 = last_word_ending.next_index;
@@ -1779,11 +1855,11 @@ class BossBrain {
                     line_info = {
                         draws: old_line_info.draws.splice(i0),
                         width: null,
-                        height: font.line_height,
+                        height: null,
                         ascent: 0,
                         descent: 0,
                         x0: null,
-                        y0: y,
+                        y0: null,
                     };
                     line_infos.push(line_info);
                     // Shift them back horizontally to the start of the line
@@ -1799,11 +1875,30 @@ class BossBrain {
             }
 
             line_info.width = x;
-            y += line_info.height + line_spacing;
         }
 
+        // Figure out the height and y-position of each line
+        let y = 0;
+        for (let line_info of line_infos) {
+            let line_height = 0;
+            let ascent = -Infinity;
+            let descent = -Infinity;
+            for (let draw of line_info.draws) {
+                line_height = Math.max(line_height, draw.font.line_height);
+                ascent = Math.max(ascent, -draw.glyph.dy);
+                descent = Math.max(descent, draw.glyph.height + draw.glyph.dy - draw.font.line_height);
+            }
+
+            line_info.height = line_height;
+            line_info.y0 = y;
+
+            line_info.ascent = ascent;
+            line_info.descent = descent;
+
+            y += line_height + line_spacing;
+        }
         // Undo this, since there's no spacing after the last line
-        if (lines.length > 0) {
+        if (line_infos.length > 0) {
             y -= line_spacing;
         }
         let canvas_height = y;
@@ -1831,6 +1926,7 @@ class BossBrain {
             // Despite the name, we do do ONE thing here: expand the first and last lines to ensure
             // no glyphs get cut off
             // TODO but if there's padding, maybe we should let glyphs escape into it?
+            // FIXME get rid of font.line_height here, need max for the line maybe?
             let [ascent, descent] = extract_ascent_descent(
                 line_infos[0].draws.map(draw => draw.glyph), font.line_height, true);
             line_infos[0].ascent = ascent;
@@ -1901,18 +1997,19 @@ class BossBrain {
                 if (draw.translation) {
                     // Argh, we need to translate
                     let transdef = this.translations[draw.translation];
-                    let trans = default_font === 'zdoom-console' ? transdef.console : transdef.normal;
+                    // FIXME font property?
+                    let trans = draw.font.use_console_translation ? transdef.console : transdef.normal;
                     // First draw the character to the dummy canvas -- note we can't
                     // draw it to this canvas and then alter it, because negative
                     // kerning might make it overlap an existing character we shouldn't
                     // be translating
                     let scratch_ctx = init_scratch_canvas(glyph.width, glyph.height);
-                    font.draw_glyph(glyph, scratch_ctx, 0, 0);
+                    draw.font.draw_glyph(glyph, scratch_ctx, 0, 0);
 
                     // Now translate it in place
                     let imagedata = scratch_ctx.getImageData(0, 0, glyph.width, glyph.height);
                     let pixels = imagedata.data;
-                    let [light0, light1] = font.lightness_range;
+                    let [light0, light1] = draw.font.lightness_range;
                     for (let i = 0; i < pixels.length; i += 4) {
                         if (pixels[i + 3] === 0)
                             continue;
@@ -1944,7 +2041,7 @@ class BossBrain {
                 }
                 else {
                     // Simple case: no translation is a straight blit
-                    font.draw_glyph(glyph, ctx, px, py);
+                    draw.font.draw_glyph(glyph, ctx, px, py);
                 }
             }
         }
