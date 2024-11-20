@@ -966,41 +966,6 @@ class BossBrain {
                 trigger_local_download(stem.substring(0, 100) + '.png', blob);
             });
         });
-        // TODO figure out how to make this more generic.  maybe pop open a dialog?
-        document.querySelector('#button-bulk-download').addEventListener('click', async () => {
-            let font_ident = this.form.elements['font'].value;
-            let text = this.form.elements['text'].value;
-            if (! text)
-                return;
-
-            let lines = text.split(/\n/);
-            let args = this.get_render_args();
-            let promises = [];
-            for (let line of lines) {
-                let canvas = this.render_text({
-                    text: line,
-                    canvas: null,
-                    ...args
-                });
-                promises.push(
-                    new Promise(res => canvas.toBlob(res)).then(blob => blob.arrayBuffer()));
-            }
-            let bufs = await Promise.all(promises);
-            let files = {};
-            for (let [i, buf] of bufs.entries()) {
-                if (i >= 100)
-                    break;
-
-                let s = String(i);
-                if (s.length === 1) {
-                    s = '0' + s;
-                }
-                files[`CWILV${s}.png`] = new Uint8Array(buf);
-            }
-            let bytes = fflate.zipSync(files, { level: 0 });
-            let zipblob = new Blob([bytes]);
-            trigger_local_download('doomtext.zip', zipblob);
-        });
 
         // Update if the fragment changes
         window.addEventListener('popstate', ev => {
