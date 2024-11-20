@@ -30,7 +30,7 @@
     }
     input[type=radio],
     input[type=checkbox] {
-        margin: 0 3px;
+        margin: 0 0.25em 0 0.125em;
     }
     input[type=range] {
         min-width: 4em;
@@ -53,6 +53,7 @@
     }
     code {
         color: hsl(270deg, 40%, 50%);
+        white-space: nowrap;
     }
 
     html {
@@ -90,7 +91,7 @@
         outline: 1px dashed #444;
         box-shadow: 0 0 0 1px #ccc;
     }
-    form {
+    body > form {
         flex: 1 1 auto;
         border-top: 1px solid #666;
         padding: 1em 5vw;
@@ -105,7 +106,7 @@
         column-gap: 2em;
         background: #f4f4f4;
     }
-    form > footer {
+    body > form > footer {
         grid-area: footer;
         font-size: 0.75em;
         padding: 1em;
@@ -128,7 +129,7 @@
     #section-text {
         grid-area: text;
         display: flex;
-        flex-direction: row;
+        flex-flow: column;
         align-items: stretch;
         justify-content: stretch;
         gap: 0.5em;
@@ -136,15 +137,15 @@
     }
     #section-text .-buttons {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         justify-content: stretch;
-        gap: 0.25em;
+        gap: 0.5em;
         min-width: 10em;
     }
     #section-text .-buttons button {
         flex: 1;
     }
-    textarea {
+    #section-text textarea {
         font-size: inherit;
         box-sizing: border-box;
         width: 60vw;
@@ -385,17 +386,14 @@
 
     dialog {
         position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
         min-width: 20vw;
-        max-width: 90vw;
-        max-height: 90vh;
-        margin: 0;
+        max-width: 85vw;
+        max-height: 85vh;
+        margin: auto;
         padding: 1rem;
-        border: 1px solid #999;
+        border: 0.25rem solid #eee;
         background: white;
-        box-shadow: 0 2px 4px #0004, inset 0 0 0 0.25rem #eee;
+        box-shadow: 0 0 0 1px #999, 0 2px 4px 1px #0004;
     }
     dialog::backdrop {
         background: hsla(225, 20%, 75%, 0.5);
@@ -470,6 +468,40 @@
         margin-bottom: 0;
     }
 
+    #bulk-dialog form {
+        display: grid;
+        /* force equal width, so the sample doesn't fuck up the layout */
+        grid: auto / minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1em;
+    }
+    #bulk-dialog form select,
+    #bulk-dialog form textarea,
+    #bulk-dialog form button {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    #bulk-dialog form > :first-child {
+        display: flex;
+        flex-flow: column;
+        gap: 0.5rem;
+    }
+    #bulk-dialog .bulk-sample-output {
+        display: grid;
+        place-items: safe center;
+        height: 4em;
+        padding: 2px;
+        background: #f4f4f4;
+    }
+    #bulk-dialog .bulk-sample-output canvas {
+        max-width: 100%;
+        max-height: 100%;
+        image-rendering: initial;
+    }
+    #bulk-dialog textarea {
+        flex: 1;
+    }
+
     /* Confirmation that you actually copied */
     .star {
         position: absolute;
@@ -494,12 +526,12 @@
     }
 
     @media (max-width: 1439px) {
-        form {
+        body > form {
             padding: 1em 2vw;
         }
     }
     @media (max-width: 1279px) {
-        form {
+        body > form {
             grid-template:
                 "text   text"
                 "font   options"
@@ -510,7 +542,7 @@
         }
     }
     @media (max-width: 800px) {
-        form {
+        body > form {
             grid-template:
                 "text"
                 "font"
@@ -520,11 +552,11 @@
                 / 1fr
             ;
         }
-        textarea {
-            width: 70vw;
-        }
         #section-text {
             flex-direction: column;
+        }
+        #section-text textarea {
+            width: 70vw;
         }
         #section-text .-buttons {
             flex-direction: row;
@@ -542,14 +574,11 @@
         <section id="section-text">
             <textarea name="text"></textarea>
             <div class="-buttons">
-                <button id="button-randomize">🎲 Randomize</button>
-                <!--
-                TODO
-                <button id="button-randomize-more">🎲 Chaos Roll</button>
-                -->
                 <button id="button-copy">📋 Copy</button>
                 <button id="button-download">💾 Download</button>
+                <button id="button-randomize">🎲 Randomize</button>
                 <button id="button-bulk-download">💿 Bulk download</button>
+                <button data-dialog-id="bulk-dialog">📚 Bulk generator</button>
             </div>
         </section>
 
@@ -620,6 +649,10 @@
                     <input name="fullwidth" type="checkbox"> Use this as the canvas width
                     -->
                 </label></li>
+                <!--
+                TODO hmm what if i want a fixed height?  makes more sense to just ask for image dimensions then, but...
+                <li><label style="margin-left: 1em;"><input name="use-wrap-width" type="checkbox"> Use this as the image width</label></li>
+                -->
                 <li><label><input name="solo" type="checkbox"> Hide controls (click to reveal)</label></li>
             </ul>
 
@@ -682,6 +715,43 @@
 
         <ol class="character-set --ascii"></ol>
         <ol class="character-set"></ol>
+    </dialog>
+    <dialog id="bulk-dialog">
+        <button type="button" class="emoji-button -close" autofocus>❌</button>
+        <h1>Bulk generator</h1>
+        <p>This is mainly intended for generating CWILV lumps for a vanilla WAD, but it may have other clever uses as well.</p>
+        <p>All your existing settings are used.  You can close this dialog to fiddle with them without losing anything here.</p>
+        <form>
+        <div>
+            <select name="format">
+                <option value="mapinfo">UMAPINFO or ZMAPINFO</option>
+                <option value="list">Plain list of map names, one per line</option>
+            </select>
+            <textarea name="text"></textarea>
+            <button type="submit">💾 Download ZIP</button>
+        </div>
+        <div>
+            <div class="bulk-sample-output"></div>
+            <p>
+                Output file naming format:<br>
+                <select name="filename">
+                    <option value="auto" checked> Auto, prefer Doom 2</option>
+                    <option value="auto-doom1"> Auto, prefer Doom 1</option>
+                    <option value="number"> Numbered in order</option>
+                    <option value="lump"> Map lump name (*MAPINFO only)</option>
+                </select>
+            </p>
+
+            <p>
+                Text template (uses extended bbcode):<br>
+                <textarea name="template" rows="4" placeholder="[=levelname][?author]&#x0a;[font=doom messages][=author][/?author]"></textarea>
+            </p>
+            <p>Leave blank for a sensible default.</p>
+            <p><code>[=property]</code> — insert the MAPINFO's value for <code>property</code>.  Use <code>[=levelname]</code> for the name, <code>[=author]</code> for the author, and <code>[=lumpname]</code> for the lump name (e.g., MAP01).</p>
+            <p>(For plain text, only <code>[=levelname]</code> is available.)</p>
+            <p><code>[?property]...[/?property]</code> — only include the contents if <code>property</code> exists.</p>
+        </div>
+        </form>
     </dialog>
     <dialog id="help-syntax-plain">
         <button type="button" class="emoji-button -close" autofocus>❌</button>

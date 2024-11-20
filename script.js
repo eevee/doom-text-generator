@@ -3,18 +3,16 @@
 // someone asked for build + quake fonts
 // color table doesn't show console if the page loads with zdoom-console selected
 // someday, bbcode...
+// - ack, it's not stripped from the downloaded filename
+// - font stuff: auto baseline is wrong for several builtin fonts; no way to override it for custom
 // - do something with errors
-// - line spacing
-// - color
-// - kerning
+//   - would be great if bbcode parser never errored
 // - explicit offsets maybe?
 // - documentation
 // - attempt to handle baseline
-// - allow setting baseline for custom fonts (default to bottom)  (OH, autodetect, holy fuck)
 // - convert between acs and bbcode?
 // - click color buttons to insert at cursor, or set selection color correctly, depending on syntax?
 // - [color] tag that accepts a hex code?
-// oh fuck, load a mapinfo and autogen the cwvils????  does mapinfo support author?
 // add a "word wrap" sub-checkbox that makes the image exactly that size
 // better missing char handling
 // refreshing loses the selected translation
@@ -1016,9 +1014,28 @@ class BossBrain {
                 document.getElementById(dialog_button.getAttribute('data-dialog-id')).showModal();
             });
         }
-        document.querySelector('dialog button.-close').addEventListener('click', ev => {
-            ev.target.closest('dialog').close();
+        for (let button of document.querySelectorAll('dialog button.-close')) {
+            button.addEventListener('click', ev => {
+                ev.target.closest('dialog').close();
+            });
+        }
+        // Also close when clicking the backdrop, which is a little funky...
+        document.body.addEventListener('click', ev => {
+            // We hit the backdrop if the click goes to the dialog, but the position isn't actually
+            // within the dialog
+            if (ev.target.tagName === 'DIALOG') {
+                let rect = ev.target.getBoundingClientRect();
+                if (! (rect.left <= ev.clientX && ev.clientX <= rect.right &&
+                    rect.top <= ev.clientY && ev.clientY <= rect.bottom))
+                {
+                    ev.target.close();
+                }
+            }
         });
+
+        // Wire up the bulk dialog
+        this.bulk_generator = new BulkGenerator(
+            this, document.querySelector('#bulk-dialog'));
     }
 
     _update_radioset(ul) {
@@ -2198,6 +2215,368 @@ class BossBrain {
             canvas_width * scale, canvas_height * scale);
 
         return final_canvas;
+    }
+}
+
+
+// -------------------------------------------------------------------------------------------------
+// Bulk generator dialog
+
+// TODO for auto text template, also auto-select the fonts?  or...?  maybe not?
+// TODO allow picking which map to preview...?  list all the maps?
+
+
+class BulkGenerator {
+    constructor(brain, root) {
+        this.brain = brain;
+        this.root = root;
+        this.form = root.querySelector('form');
+        this.button = this.form.querySelector('button[type=submit]');
+        this.sample = this.root.querySelector('.bulk-sample-output');
+
+        this.maps = [];
+        this.parse_template();
+        this.reparse();  // in case we refresh and are already populated
+
+        this.form.querySelector('textarea').addEventListener('input', () => {
+            this.reparse();
+        });
+        this.form.querySelector('select[name=format]').addEventListener('change', () => {
+            this.reparse();
+        });
+        this.form.addEventListener('submit', ev => {
+            ev.preventDefault();
+            this.download();
+        });
+    }
+
+    // spits out a list of ['literal', string] + ['prop', key] + ['if', key, children]
+    parse_template() {
+        let template = this.form.elements['template'].value;
+        if (template === '') {
+            template = this.form.elements['template'].placeholder;
+        }
+
+        let nodes = [];
+        let if_stack = [];
+        let level = nodes;
+        let parse_rx = /(?<bracket>\[\[|\]\])|(?<literal>[^\[\]]+)|\[=(?<prop>\w+)\]|\[\?(?<ifstart>\w+)\]|\[\/\?(?<ifend>\w+)\]|(?<fallback>[\[\]])/sgu;
+        let match;
+        while (match = parse_rx.exec(template)) {
+            if (match.groups.bracket) {
+                level.push(['literal', match.groups.bracket.slice(0, 1)]);
+            }
+            else if (match.groups.literal) {
+                level.push(['literal', match.groups.literal]);
+            }
+            else if (match.groups.fallback) {
+                level.push(['literal', match.groups.fallback]);
+            }
+            else if (match.groups.prop) {
+                level.push(['prop', match.groups.prop]);
+            }
+            else if (match.groups.ifstart) {
+                let key = match.groups.ifstart;
+                let newlevel = [];
+                level.push(['if', key, newlevel]);
+                if_stack.push({ key, level });
+                level = newlevel;
+            }
+            else if (match.groups.ifend) {
+                let key = match.groups.ifend;
+                // Auto-close tags until we find a match
+                while (if_stack.length > 0 && if_stack.at(-1).key !== key) {
+                    level = if_stack.pop().level;
+                }
+                if (if_stack.length > 0) {
+                    level = if_stack.pop().level;
+                }
+            }
+        }
+
+        this.template = nodes;
+    }
+
+    eval_template(template, map, chunks = []) {
+        for (let node of template) {
+            if (node[0] === 'literal') {
+                chunks.push(node[1]);
+            }
+            else if (node[0] === 'prop') {
+                // Note we have to escape this because rendering will re-parse as bbcode
+                chunks.push(String(map[node[1]] ?? "").replace(/[\[\]]/g, '$1$1'));
+            }
+            else if (node[0] === 'if') {
+                if (node[1] in map) {
+                    this.eval_template(node[2], map, chunks);
+                }
+            }
+        }
+
+        return chunks;
+    }
+
+    parse_mapinfo(text) {
+        // Parse both UMAPINFO and ZMAPINFO.  Not trying to be exact, here (and both formats are
+        // wildly underspecified anyway); just trying to get the important bits
+        let match;
+        // States:
+        // outside -- not within any block; stash tokens until we see {
+        // inside -- within a block but haven't yet seen a key (expect token)
+        // after key -- within a block, just saw a key (expect = or a new key)
+        // value -- within a key, expecting a value
+        // after value -- just saw a value (expect , or a new key)
+        let state = 'outside';
+        let maps = [];
+        let block = { header: [], data: {} };
+        let key = null;
+        // sorry.  im sorry
+        let tokenize_rx = /(?<space>\s|\/\/.*\n|\/\*.*\*\/)|(?<string>"(?:[^"\\]|\\[\\"])*")|(?<number>-?\d+(?:[.]\d*)?)|(?<token>\w+)|(?<open>\{)|(?<close>\})|(?<equals>=)|(?<comma>,)|(?<unknown>.)/ug;
+        while (match = tokenize_rx.exec(text)) {
+            if (match.groups.space)
+                continue;
+            if (match.groups.unknown) {
+                console.error(match);
+                continue;
+            }
+
+            let string = null;
+            let number = null;
+            let token = null;
+            if (match.groups.string) {
+                string = match.groups.string.slice(1, -1);
+                // I don't know what escapes are allowed!  I've seen \" in the wild, which implies
+                // that \\ ought to work as well, but otherwise I don't know
+                string = string.replace(/\\/, '');
+            }
+            if (match.groups.number) {
+                number = parseFloat(match.groups.number);
+            }
+            if (match.groups.token) {
+                token = Symbol.for(match.groups.token);
+            }
+            let value = string ?? number ?? token;
+
+            if (state === 'outside') {
+                if (match.groups.open) {
+                    state = 'inside';
+                    continue;
+                }
+                else if (value !== null) {
+                    block.header.push(value);
+                    continue;
+                }
+            }
+
+
+            if (token &&
+                (state === 'inside' || state === 'after key' || state === 'after value'))
+            {
+                key = Symbol.keyFor(token);
+                block.data[key] = [];
+                state = 'after key';
+                continue;
+            }
+
+            if (match.groups.close && (state === 'after key' || state === 'after value')) {
+                // Check for a map name block; we don't care about other blocks
+                let blocktype = block.header.at(0);
+                if (blocktype && typeof blocktype === 'symbol' &&
+                    Symbol.keyFor(blocktype).toLowerCase() === 'map')
+                {
+                    maps.push(this._prettify_mapinfo_block(block));
+                }
+
+                //blocks.push(block);
+                block = { header: [], data: {} };
+                state = 'outside';
+                continue;
+            }
+
+            if (state === 'after key') {
+                if (match.groups.equals) {
+                    state = 'value';
+                    continue;
+                }
+            }
+            else if (state === 'value') {
+                if (value !== null) {
+                    block.data[key].push(value);
+                    state = 'after value';
+                    continue;
+                }
+            }
+            else if (state === 'after value') {
+                if (match.groups.comma) {
+                    state = 'value';
+                    continue;
+                }
+            }
+
+            console.error("fatal mapinfo parse error:", state, match);
+        }
+
+        return maps;
+    }
+
+    _prettify_mapinfo_block(block) {
+        let props = {};
+        for (let [key, values] of Object.entries(block.data)) {
+            // Collapse multiple values into one.  Multiple values are very rare and we don't
+            // really care about them anyway
+            let value;
+            if (values.length === 0) {
+                value = true;
+            }
+            else if (values.length === 1) {
+                value = values[0];
+            }
+            else if (values.every(value => typeof value === 'string')) {
+                // 'intertext' allows a sequence of strings, one per line
+                value = values.join("\n");
+            }
+            else {
+                // Just use the first; hopefully this is something like sky1 which takes an
+                // optional second argument
+                value = values[0];
+            }
+            props[key] = value;
+        }
+
+        let lump = block.header.at(1);
+        if (typeof lump === 'symbol') {
+            lump = Symbol.keyFor(lump);
+        }
+        else {
+            lump = null;
+        }
+
+        // ZMAPINFO puts the name in the header; UMAPINFO uses a prop
+        let name = props['levelname'] ?? block.header.at(2);
+        if (typeof name !== 'string') {
+            name = null;
+        }
+
+        props['lumpname'] = lump;
+        props['levelname'] = name;
+        return props;
+    }
+
+    reparse() {
+        let text = this.form.elements['text'].value;
+        text = text.trimEnd("\n");
+        let format = this.form.elements['format'].value;
+
+        if (text === '') {
+            this.maps = [];
+        }
+        else if (format === 'mapinfo') {
+            this.maps = this.parse_mapinfo(text);
+        }
+        else {
+            this.maps = [];
+            for (let line of text.split("\n")) {
+                this.maps.push({ levelname: line });
+            }
+        }
+
+        this.update_button();
+        this.update_preview();
+    }
+
+    update_button() {
+        if (! window.fflate) {
+            this.button.disabled = true;
+            this.button.textContent = "💾 (fflate library failed to load!)";
+        }
+        else if (this.maps.length === 0) {
+            this.button.disabled = true;
+            this.button.textContent = "💾 No maps found";
+        }
+        else {
+            this.button.disabled = false;
+            this.button.textContent = `💾 Download ZIP of ${this.maps.length} image${this.maps.length === 1 ? '' : 's'}`;
+        }
+    }
+
+    update_preview() {
+        this.sample.textContent = '';
+
+        if (this.maps.length > 0) {
+            this.sample.append(this.render_one(this.maps[0]));
+        }
+    }
+
+    render_one(map) {
+        let chunks = this.eval_template(this.template, map);
+
+        let args = this.brain.get_render_args();
+        args.text = chunks.join("");
+        args.canvas = null;
+        args.syntax = 'bbcode';
+        return this.brain.render_text(args);
+    }
+
+    _lumpname_to_levelpic(lumpname) {
+        let m;
+        if (m = lump.match(/^map(\d\d)$/i)) {
+            return 'CWILV' + String(parseInt(m[1], 10) - 1).padStart(2, '0');
+        }
+        else if (m = lump.match(/^e(\d)m(\d)$/i)) {
+            return `WILV${parseInt(m[1], 10) - 1}${parseInt(m[2], 10) - 1}`;
+        }
+    }
+    async download() {
+        let filenaming = this.form.elements['filename'].value;
+
+        let promises = [];
+        for (let map of this.maps) {
+            let canvas = this.render_one(map);
+            promises.push(
+                new Promise(res => canvas.toBlob(res)).then(blob => blob.arrayBuffer()));
+        }
+
+        let bufs = await Promise.all(promises);
+        let files = {};
+        for (let [i, buf] of bufs.entries()) {
+            if (i >= 200)
+                break;
+
+            let fn;
+            let map = this.maps[i];
+            if (filenaming === 'auto' || filenaming === 'auto-doom1') {
+                if (map['levelpic'] && map['levelpic'] !== '') {
+                    // Explicit lump name; always trust that
+                    fn = String(map['levelpic']);
+                }
+                else if (map['lumpname']) {
+                    fn = this._lumpname_to_levelpic(String(map['lumpname']), i);
+                }
+                if (! fn || fn === '') {
+                    // Fall back to numerical order
+                    if (filenaming === 'auto-doom1') {
+                        // Doom 1 uses EM numbering, but episodes only have 9 maps, so M is never 9
+                        fn = `WILV${i.toString(9).padStart(2, '0')}`;
+                    }
+                    else {
+                        // Doom 2 just counts up from zero
+                        fn = `CWILV${i.toString().padStart(2, '0')}`;
+                    }
+                }
+            }
+            else if (filenaming === 'lump' && map['lumpname']) {
+                fn = String(map['lumpname']);
+            }
+            else {
+                fn = String(i);
+            }
+
+            // TODO check for dupes?
+            files[`${fn}.png`] = new Uint8Array(buf);
+        }
+        let bytes = fflate.zipSync(files, { level: 0 });
+        let zipblob = new Blob([bytes]);
+        trigger_local_download('doomtext.zip', zipblob);
     }
 }
 
