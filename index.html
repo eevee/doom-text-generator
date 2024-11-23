@@ -492,7 +492,10 @@
         height: 4em;
         padding: 2px;
         overflow: auto;
-        background: #f4f4f4;
+        box-shadow: inset 0 0 0 2px #f4f4f4;
+    }
+    #bulk-dialog .bulk-sample-output canvas {
+        background: #ccc;
     }
     #bulk-dialog textarea {
         flex: 1;
@@ -502,6 +505,28 @@
     }
     #bulk-dialog p:last-child {
         margin-bottom: 0;
+    }
+    #bulk-dialog fieldset {
+        /* make these overlap so toggling doesn't change the dialog size */
+        display: grid;
+    }
+    #bulk-dialog fieldset > div {
+        grid-area: 1/1/1/1;
+    }
+    #bulk-dialog fieldset > legend:has(input[name=custom-template]:checked) ~ .-custom-template-no {
+        visibility: hidden;
+    }
+    #bulk-dialog fieldset > legend:has(input[name=custom-template]:not(:checked)) ~ .-custom-template-yes {
+        visibility: hidden;
+    }
+    #bulk-dialog fieldset .-custom-template-no p {
+        display: grid;
+        grid: auto auto / 4fr 2fr;
+        gap: 0.25em 1em;
+        align-items: center;
+    }
+    #bulk-dialog fieldset .-custom-template-no p span {
+        grid-column: span 2;
     }
 
     /* Confirmation that you actually copied */
@@ -721,7 +746,7 @@
         <button type="button" class="emoji-button -close" autofocus>❌</button>
         <h1>Bulk generator</h1>
         <p>This is mainly intended for generating levelpic lumps for a vanilla WAD, but it may have other clever uses as well.</p>
-        <p>All your existing settings are used.  You can close this dialog to fiddle with them without losing anything here.</p>
+        <p>If a setting isn't mentioned here, the value from the main generator is used.  You can safely close this dialog to change those settings without losing anything here.</p>
         <form>
         <div>
             <select name="format">
@@ -747,10 +772,10 @@
             </p>
             <div class="bulk-sample-output"></div>
             <p>
-                <label><input name="use-reccs" type="checkbox" checked>
-                    Use some recommended levelpic settings<br>
+                <button name="use-recs" type="button">
+                    Apply some useful levelpic settings<br>
                     (scale = 1×, escapees = shrink to fit per line, no background, no word wrap)
-                </label>
+                </button>
             </p>
 
             <!-- Template: either friendly choice of font/color for name/author, or totally custom textarea -->
@@ -761,23 +786,21 @@
 
                 <div class="-custom-template-no">
                     <p>
-                        Name style:
+                        <span>Name style:</span>
                         <select name="name-font">
-                            <option value="none">current selection</option>
+                            <option value="none">automatic big font</option>
                         </select>
                         <select name="name-color">
-                            <option value="none">current selection</option>
-                            <option value="none">default</option>
+                            <option value="">original colors</option>
                         </select>
                     </p>
                     <p>
-                        Author style:
-                        <select name="name-font">
-                            <option value="none">current selection</option>
+                        <span>Author style:</span>
+                        <select name="author-font">
+                            <option value="">automatic small font</option>
                         </select>
-                        <select name="name-color">
-                            <option value="none">current selection</option>
-                            <option value="none">default</option>
+                        <select name="author-color">
+                            <option value="">original colors</option>
                         </select>
                     </p>
                 </div>

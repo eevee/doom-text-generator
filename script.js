@@ -2194,6 +2194,13 @@ class BossBrain {
 
 
 class BulkGenerator {
+    static RECOMMENDED_SETTINGS = {
+        scale: '1',
+        'escapee-mode': 'min-each',
+        bg: false,
+        wrap: false,
+    };
+
     constructor(brain, root) {
         this.brain = brain;
         this.root = root;
@@ -2215,8 +2222,25 @@ class BulkGenerator {
             this.update_preview();
         });
 
+        // TODO add new fonts...
+        for (let ident of this.brain.font_order) {
+            let option = document.createElement('option');
+            option.setAttribute('value', ident);
+            option.textContent = this.brain.fonts[ident].meta.name;
+            this.form.elements['name-font'].append(option.cloneNode(true));
+            this.form.elements['author-font'].append(option);
+        }
+        for (let name of Object.keys(this.brain.translations)) {
+            let option = document.createElement('option');
+            option.setAttribute('value', name);
+            option.textContent = name;
+            this.form.elements['name-color'].append(option.cloneNode(true));
+            this.form.elements['author-color'].append(option);
+        }
+
+        // Update immediately, in case the form is already populated after a refresh
         this.parse_template();
-        this.reparse();  // in case we refresh and are already populated
+        this.reparse();
 
         this.form.querySelector('textarea').addEventListener('input', () => {
             this.reparse();
@@ -2229,9 +2253,47 @@ class BulkGenerator {
             this.download();
         });
 
+        this.use_recs_button = this.form.querySelector('button[name=use-recs]');
+        this.use_recs_button.addEventListener('click', ev => {
+            let any_changed = false;
+            for (let [key, value] of Object.entries(this.constructor.RECOMMENDED_SETTINGS)) {
+                console.log(key, value, this.brain.form.elements[key].value);
+                let ctl = this.brain.form.elements[key];
+                if (ctl.type === 'checkbox') {
+                    if (ctl.checked !== value) {
+                        ctl.checked = value;
+                        any_changed = true;
+                    }
+                }
+                else {
+                    if (ctl.value !== value) {
+                        ctl.value = value;
+                        any_changed = true;
+                    }
+                }
+            }
+            if (any_changed) {
+                this.brain.update_fragment();
+                this.brain.redraw_current_text();
+            }
+            this.use_recs_button.disabled = true;
+        });
+
         // Refresh preview when the dialog is opened, in case the underlying settings have changed
         // XXX you'd think this would use the 'toggle' event but that's not quite shipped yet
         document.querySelector(`button[data-dialog-id=${this.root.id}]`).addEventListener('click', ev => {
+            // Update the recs button's disabledness to match whether the recommended
+            // settings are already set
+            this.use_recs_button.disabled = true;
+            for (let [key, value] of Object.entries(this.constructor.RECOMMENDED_SETTINGS)) {
+                let ctl = this.brain.form.elements[key];
+                let current = (ctl.type === 'checkbox') ? ctl.checked : ctl.value;
+                if (current !== value) {
+                    this.use_recs_button.disabled = false;
+                    break;
+                }
+            }
+
             this.update_preview();
             this.update_button();
         });
