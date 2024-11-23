@@ -3,6 +3,7 @@
 // someone asked for build + quake fonts
 // color table doesn't show console if the page loads with zdoom-console selected
 // someday, bbcode...
+// - uh oh i think
 // - ack, it's not stripped from the downloaded filename
 // - font stuff: auto baseline is wrong for several builtin fonts; no way to override it for custom
 // - do something with errors
@@ -12,6 +13,7 @@
 // - attempt to handle baseline
 // - convert between acs and bbcode?
 // - click color buttons to insert at cursor, or set selection color correctly, depending on syntax?
+//   - likewise click fonts to do that too?
 // - [color] tag that accepts a hex code?
 // add a "word wrap" sub-checkbox that makes the image exactly that size
 // better missing char handling
@@ -2334,28 +2336,29 @@ class BulkGenerator {
             }
 
 
-            if (token &&
-                (state === 'inside' || state === 'after key' || state === 'after value'))
-            {
-                key = Symbol.keyFor(token);
-                block.data[key] = [];
-                state = 'after key';
-                continue;
-            }
-
-            if (match.groups.close && (state === 'after key' || state === 'after value')) {
-                // Check for a map name block; we don't care about other blocks
-                let blocktype = block.header.at(0);
-                if (blocktype && typeof blocktype === 'symbol' &&
-                    Symbol.keyFor(blocktype).toLowerCase() === 'map')
-                {
-                    maps.push(this._prettify_mapinfo_block(block));
+            // Any of these states can be followed by a new key or the end of the block
+            if (state === 'inside' || state === 'after key' || state === 'after value') {
+                if (token) {
+                    key = Symbol.keyFor(token);
+                    block.data[key] = [];
+                    state = 'after key';
+                    continue;
                 }
 
-                //blocks.push(block);
-                block = { header: [], data: {} };
-                state = 'outside';
-                continue;
+                if (match.groups.close) {
+                    // Check for a map name block; we don't care about other blocks
+                    let blocktype = block.header.at(0);
+                    if (blocktype && typeof blocktype === 'symbol' &&
+                        Symbol.keyFor(blocktype).toLowerCase() === 'map')
+                    {
+                        maps.push(this._prettify_mapinfo_block(block));
+                    }
+
+                    //blocks.push(block);
+                    block = { header: [], data: {} };
+                    state = 'outside';
+                    continue;
+                }
             }
 
             if (state === 'after key') {
