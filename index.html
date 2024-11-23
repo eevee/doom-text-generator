@@ -530,6 +530,19 @@
         grid-column: span 2;
     }
 
+    #help-escapees ul.regular li {
+        contain: layout;
+    }
+    #help-escapees ul.regular li canvas {
+        float: left;
+        margin: 0 1em 1em 0;
+        border: 1px solid #999;
+        background: #f4f4f4;
+    }
+    #help-escapees ul.regular li canvas + p {
+        margin-top: 0;
+    }
+
     /* Confirmation that you actually copied */
     .star {
         position: absolute;
@@ -631,19 +644,28 @@
                 <dd class="range-with-label"><input name="line-spacing" type="range" min="-12" max="12" step="1" value="0"> <output>0</output></dd>
                 <dt>Padding</dt>
                 <dd class="range-with-label"><input name="padding" type="range" min="0" max="32" step="1" value="0"> <output>0</output></dd>
-                <dt>Escapees</dt>
+                <dt>
+                    <button class="emoji-button" type="button" data-dialog-id="help-escapees">ℹ️</button>
+                    Escapees
+                </dt>
                 <dd>
                     <select name="escapee-mode">
-                        <option value="none">Always use normal line height</option>
-                        <option value="max">Always use maximum line height</option>
-                        <option value="each">Expand to fit, per line</option>
-                        <option value="equal" selected>Expand all lines equally</option>
-                        <option value="min-each">Shrink to fit, per line</option>
-                        <option value="min-equal">Shrink to fit all lines equally</option>
+                        <option value="normal">Use normal line height</option>
+                        <option value="trim">Force normal line height</option>
+                        <option value="max">Use maximum line height</option>
+                        <option value="expand" selected>Expand to fit</option>
+                        <option value="shrink">Shrink to fit</option>
+
                     </select>
                 </dd>
+                <dt></dt>
+                <dd>
+                    <label>
+                        <input name="equal-lines" type="checkbox" checked>
+                        Make all lines the same height
+                    </label>
+                </dd>
             </dl>
-            <p>"Escapees" are characters like Й in the Doom Menu font, which peek above the top of the line.  May have limited effect on English text.  Use "Shrink to fit" for CWILVs.</p>
 
             <h2>Alignment</h2>
             <ul class="radioset alignment">
@@ -775,7 +797,7 @@
             <p>
                 <button name="use-recs" type="button">
                     Apply some useful levelpic settings<br>
-                    (scale = 1×, escapees = shrink to fit per line, no background, no word wrap)
+                    (1× scale; shrink to fit; different height lines; no background; no word wrap)
                 </button>
             </p>
 
@@ -792,7 +814,8 @@
                             <option value="none">automatic big font</option>
                         </select>
                         <select name="name-color">
-                            <option value="">original colors</option>
+                            <option value="" selected>selected color</option>
+                            <option value="none">original color</option>
                         </select>
                     </p>
                     <p>
@@ -801,7 +824,8 @@
                             <option value="">automatic small font</option>
                         </select>
                         <select name="author-color">
-                            <option value="">original colors</option>
+                            <option value="">selected color</option>
+                            <option value="none" selected>original color</option>
                         </select>
                     </p>
                 </div>
@@ -818,6 +842,36 @@
         </div>
         </form>
     </dialog>
+
+    <dialog id="help-escapees">
+        <button type="button" class="emoji-button -close" autofocus>❌</button>
+        <h1>Escapees</h1>
+        <p>"Escapees" are characters like Й in the Doom Menu font, which peek above what the font claims is its top edge (or, similarly, characters like Ç which go below the font's claimed height).</p>
+        <p>This is admittedly a niche setting, and it usually won't affect English text, but there's no obvious "correct" behavior.  Also the name "escapee" is made up, but there doesn't seem to be a clear typesetting term for this.</p>
+        <p>This also impacts the handling of mixed fonts, especially the "Make all lines the same height" checkbox.</p>
+        <p>Some options are "size preserving", in the sense that no matter how you change the text within a line, the output image will always be the same size.</p>
+        <ul class="regular">
+            <li data-option="none">
+                <p><strong>Use normal line height</strong> — Do nothing special.  Overheight characters will extend into line spacing or neighboring lines.</p>
+                <p>The first and last lines may be expanded to avoid cutting characters off (but not if they could fit inside the padding).</p>
+            </li>
+            <li data-option="trim">
+                <p><strong>Force normal line height</strong> — Do nothing special.  Overheight characters will extend into line spacing or neighboring lines.  This is size-preserving.</p>
+                <p>If the first and last lines contain overheight characters, they may be cut off (but can extend into padding, if present).</p>
+            </li>
+            <li data-option="max">
+                <p><strong>Use maximum line height</strong> — Expand the line height to fit every possible character from every font that's used.  This is size-preserving.</p>
+            </li>
+            <li data-option="expand">
+                <p><strong>Expand to fit</strong> — If any overheight characters are used, expand as necessary to fit them within the line.</p>
+            </li>
+            <li data-option="shrink">
+                <p><strong>Shrink to fit</strong> — Like "Expand to fit", but if none of the characters in a line fill the whole line height, discard the unused space.  You can see the effect of this with the Doom Menu font and a lowercase message; the empty space at the top of the line will be discarded.</p>
+                <p>This uses the physical size of the characters, so it won't discard rows of transparent pixels that are part of the actual character bitmap.</p>
+            </li>
+        </ul>
+    </dialog>
+
     <dialog id="help-syntax-plain">
         <button type="button" class="emoji-button -close" autofocus>❌</button>
         <h1>plain text</h1>

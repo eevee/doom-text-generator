@@ -478,6 +478,26 @@ class Font {
             break;
         }
     }
+
+    // This sets .ascent and .descent, which are the maximum distance any glyph escapes above or
+    // below the font's baseline.  Note that they may be smaller than the full height of the font.
+    detect_escapees() {
+        let ascent = -Infinity;
+        let descent = -Infinity;
+        for (let glyph of Object.values(this.glyphs)) {
+            ascent = Math.max(ascent, -glyph.dy);
+            descent = Math.max(descent, glyph.height + glyph.dy - this.baseline);
+        }
+        if (ascent === -Infinity) {
+            ascent = 0;
+        }
+        if (descent === -Infinity) {
+            descent = 0;
+        }
+
+        this.ascent = ascent + this.baseline;
+        this.descent = descent;
+    }
 }
 
 // "Standard" fonts I scraped myself from various places and crammed into montages
@@ -519,6 +539,7 @@ class BuiltinFont extends Font {
         else {
             this.detect_baseline();
         }
+        this.detect_escapees();
 
         this.meta = fontdef.meta;
         this.name = fontdef.meta.name;
@@ -571,6 +592,7 @@ class WADFont extends Font {
         this.kerning = 0;
         this.lightness_range = [0, 255];  // TODO can just get from the palette?  or do i need the actual lightness of the colors that get used?  urgh
         this.detect_baseline();
+        this.detect_escapees();
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
@@ -605,6 +627,7 @@ class FON2Font extends Font {
         this.space_width = zdoom_estimate_space_width(this);
         this.lightness_range = ret.lightness_range;
         this.detect_baseline();
+        this.detect_escapees();
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
@@ -630,6 +653,7 @@ class UnicodeFont extends Font {
             this.lightness_range = [0, 255];
         }
         this.detect_baseline();
+        this.detect_escapees();
 
         this.meta = meta;
         this.name = meta.name ?? "";  // XXX ???
@@ -835,6 +859,7 @@ class BossBrain {
 
         // Escapee mode
         this.form.elements['escapee-mode'].addEventListener('change', redraw_handler);
+        this.form.elements['equal-lines'].addEventListener('change', redraw_handler);
 
         // Alignment
         let alignment_list = this.form.querySelector('ul.alignment');
@@ -1012,6 +1037,21 @@ class BossBrain {
             }
         });
 
+        // Add examples to the escapee dialog
+        for (let li of document.querySelectorAll('#help-escapees li[data-option]')) {
+            let opt = li.getAttribute('data-option');
+            let canvas = this.render_text({
+                text: "ÂẞÇ\nAbc\nabc",
+                canvas: null,
+                default_font: 'doom-bigupper',
+                escapee_mode: opt,
+                scale: 2,
+            });
+            console.log(canvas);
+            li.insertBefore(canvas, li.firstChild);
+        }
+
+
         // Wire up the bulk dialog
         this.bulk_generator = new BulkGenerator(
             this, document.querySelector('#bulk-dialog'));
@@ -1106,7 +1146,7 @@ class BossBrain {
             text: name,
             default_font: ident,
             scale: 2,
-            escapee_mode: 'min-each',
+            escapee_mode: 'shrink',
             canvas: null,
         });
         let info_button = mk('button.emoji-button', {type: 'button'}, "ℹ️");
@@ -1663,6 +1703,7 @@ class BossBrain {
             kerning: parseInt(elements['kerning'].value, 10),
             line_spacing: parseInt(elements['line-spacing'].value, 10),
             escapee_mode: elements['escapee-mode'].value,
+            equal_lines: elements['equal-lines'].checked,
             padding: parseInt(elements['padding'].value, 10),
             wrap: wrap,
             default_font: elements['font'].value,
@@ -1690,17 +1731,12 @@ class BossBrain {
         let scale = args.scale || 1;
         let kerning = args.kerning || 0;
         let line_spacing = args.line_spacing || 0;
-        // How to adjust the height of the line for odd-size glyphs:
-        // default: just use the given line height and do nothing else
-        // max: all lines grow to fit the whole charset
-        // each: each line grows to fit that line's glyphs
-        // equal: all lines grow to fit the whole text's glyphs
-        // min-each: like 'each', but also shrink to fit that line's glyphs
-        // min-equal: like 'equal', but also shrink to fit the whole text's glyphs
-        let escapee_mode = args.escapee_mode || 'none';
-        if (['max', 'each', 'equal', 'min-each', 'min-equal'].indexOf(escapee_mode) < 0) {
-            escapee_mode = 'none';
+        // How to adjust the height of the line for oversize glyphs
+        let escapee_mode = args.escapee_mode || 'normal';
+        if (['normal', 'trim', 'max', 'expand', 'shrink'].indexOf(escapee_mode) < 0) {
+            escapee_mode = 'normal';
         }
+        let equal_lines = args.equal_lines || false;
         let padding = Math.max(0, args.padding || 0);
         let default_font = args.default_font || 'doom-small';
         let default_translation = args.default_translation || null;
@@ -1786,6 +1822,7 @@ class BossBrain {
                 x0: null,  // set during alignment
                 y0: null,  // set in the line height pass
                 spacing: line_spacing,
+                default_font: font,
             };
             line_infos.push(line_info);
 
@@ -1872,6 +1909,11 @@ class BossBrain {
                             }
                             if (new_font) {
                                 arg = new_font;
+                                // If we switch fonts right at the start of a line, treat that as
+                                // the default font for the line
+                                if (line_info.draws.length === 0) {
+                                    line_info.default_font = new_font;
+                                }
                             }
                             else {
                                 throw new BBCodeError;
@@ -1982,6 +2024,7 @@ class BossBrain {
                         x0: null,
                         y0: null,
                         spacing: line_spacing,
+                        default_font: old_line_info.draws[i0].font,
                     };
                     line_infos.push(line_info);
                     // Shift them back horizontally to the start of the line
@@ -1999,134 +2042,134 @@ class BossBrain {
             line_info.width = x;
         }
 
-        // Figure out the height and y-position of each line
-        let y = 0;
-        for (let line_info of line_infos) {
-            let line_height_top = 0;
-            let line_height_bottom = 0;
+        // Figure out line height.
+        // Note that all of this uses 'ascent' and 'descent' to mean the distance from the edge of a
+        // character down to the *baseline*, not to the edge of the font
+        for (let [i, line_info] of line_infos.entries()) {
+            let baseline = line_info.default_font.baseline;
+            let font_descent = line_info.default_font.line_height - line_info.default_font.baseline;
             for (let draw of line_info.draws) {
-                line_height_top = Math.max(line_height_top, draw.font.baseline);
-                line_height_bottom = Math.max(line_height_bottom, draw.font.line_height - draw.font.baseline);
+                baseline = Math.max(baseline, draw.font.baseline);
+                font_descent = Math.max(font_descent, draw.font.line_height - draw.font.baseline);
             }
 
-            let line_height = line_height_top + line_height_bottom;
-            line_info.baseline = line_height_top;
+            let line_height = baseline + font_descent;
+            line_info.baseline = baseline;
             line_info.height = line_height;
 
+            // Track max ascent/descent for this line while we're here
             let ascent = -Infinity;
             let descent = -Infinity;
             for (let draw of line_info.draws) {
                 // Shove everything down to the baseline
-                draw.y = line_height_top - draw.font.baseline;
-                // TODO unclear how these factor in but also they're not used yet anyway
-                ascent = Math.max(ascent, -draw.glyph.dy);
-                descent = Math.max(descent, draw.glyph.height + draw.glyph.dy - draw.font.line_height);
+                draw.y = baseline - draw.font.baseline;
+                ascent = Math.max(ascent, draw.font.baseline - draw.glyph.dy);
+                descent = Math.max(descent, draw.glyph.height + draw.glyph.dy - draw.font.baseline);
             }
-
-            line_info.y0 = y;
-
+            if (ascent === -Infinity) {
+                ascent = baseline;
+                descent = font_descent;
+            }
             line_info.ascent = ascent;
             line_info.descent = descent;
-
-            y += line_height + line_info.spacing;
         }
-        // Undo this, since there's no spacing after the last line
-        if (line_infos.length > 0) {
-            y -= line_infos.at(-1).spacing;
-        }
-        let canvas_height = y;
 
-        // Deal with characters that extend beyond the line height, or that don't extend to reach it
-        // TODO feels like a font method maybe
-        let extract_ascent_descent = (glyphs, line_height, min_zero) => {
-            let ascent = Math.max(...glyphs.map(glyph => -glyph.dy));
-            let descent = Math.max(...glyphs.map(glyph => glyph.height + glyph.dy - line_height));
-            if (min_zero) {
-                ascent = Math.max(0, ascent);
-                descent = Math.max(0, descent);
-            }
-            else {
-                if (ascent === -Infinity) {
-                    ascent = 0;
+        if (escapee_mode === 'normal' || escapee_mode === 'trim') {
+            // Do nothing.  Or, for 'normal', do ONE thing: expand the first and last lines to
+            // ensure no glyphs get outright cut off
+            for (let [i, line_info] of line_infos.entries()) {
+                if (i === 0 && escapee_mode === 'normal') {
+                    // Allow escaping into the padding
+                    // FIXME doesn't actually work, gets cut off
+                    let full_ascent = Math.max(0, line_info.ascent - line_info.baseline);
+                    line_info.ascent = line_info.baseline + Math.max(0, full_ascent - padding);
                 }
-                if (descent === -Infinity) {
-                    descent = 0;
+                else {
+                    line_info.ascent = line_info.baseline;
+                }
+
+                let normal_descent = line_info.height - line_info.baseline;
+                if (i === line_infos.length - 1 && escapee_mode === 'normal') {
+                    let full_descent = Math.max(0, line_info.descent - normal_descent);
+                    line_info.descent = normal_descent + Math.max(0, full_descent - padding);
+                }
+                else {
+                    line_info.descent = normal_descent;
                 }
             }
-            return [ascent, descent];
-        };
-        if (escapee_mode === 'none') {
-            // Despite the name, we do do ONE thing here: expand the first and last lines to ensure
-            // no glyphs get cut off
-            // TODO but if there's padding, maybe we should let glyphs escape into it?
-            // FIXME get rid of font.line_height here, need max for the line maybe?
-            let [ascent, descent] = extract_ascent_descent(
-                line_infos[0].draws.map(draw => draw.glyph), font.line_height, true);
-            line_infos[0].ascent = ascent;
-            [ascent, descent] = extract_ascent_descent(
-                line_infos.at(-1).draws.map(draw => draw.glyph), font.line_height, true);
-            line_infos.at(-1).descent = descent;
         }
         else if (escapee_mode === 'max') {
-            // Make every line as tall as possible
-            let [ascent, descent] = extract_ascent_descent(
-                Object.values(font.glyphs), font.line_height, true);
+            // Make lines tall enough to contain every glyph in every font used
             for (let line_info of line_infos) {
+                let ascent = line_info.default_font.ascent;
+                let descent = line_info.default_font.descent;
+                for (let draw of line_info.draws) {
+                    ascent = Math.max(ascent, draw.font.ascent);
+                    descent = Math.max(descent, draw.font.descent);
+                }
                 line_info.ascent = ascent;
                 line_info.descent = descent;
             }
         }
         else {
-            // Actually compute how much extra ascent + descent space we need
-            for (let line_info of line_infos) {
-                [line_info.ascent, line_info.descent] = extract_ascent_descent(
-                    line_info.draws.map(draw => draw.glyph),
-                    font.line_height,
-                    ! (escapee_mode === 'min-each' || escapee_mode === 'min-equal'));
-            }
-
-            // For 'equal' height, copy the greatest of each to every line
-            if (escapee_mode === 'equal' || escapee_mode === 'min-equal') {
-                let ascent = Math.max(...line_infos.map(line_info => line_info.ascent));
-                let descent = Math.max(...line_infos.map(line_info => line_info.descent));
+            // Make lines just tall enough to contain the glyphs actually used.
+            // This is both 'expand' and 'shrink' -- the only difference is whether to cap at the
+            // normal line height.  And we already know it, so only need to floor for 'expand'
+            if (escapee_mode === 'expand') {
                 for (let line_info of line_infos) {
-                    line_info.ascent = ascent;
-                    line_info.descent = descent;
+                    line_info.ascent = Math.max(line_info.ascent, line_info.baseline);
+                    line_info.descent = Math.max(line_info.descent, line_info.height - line_info.baseline);
                 }
             }
         }
-
-        // Apply any vertical space changes from ascent/descent
-        let y_shift = 0;
-        for (let line_info of line_infos) {
-            // Ascent is "outside" the line, so it goes before the line's y position
-            line_info.y0 += y_shift + line_info.ascent;
-            y_shift += line_info.ascent + line_info.descent;
+        // For equal height lines, copy the greatest of each metric to every line
+        if (equal_lines) {
+            let ascent = Math.max(...line_infos.map(line_info => line_info.ascent));
+            let descent = Math.max(...line_infos.map(line_info => line_info.descent));
+            for (let line_info of line_infos) {
+                line_info.ascent = ascent;
+                line_info.descent = descent;
+            }
         }
-        canvas_height += y_shift;
 
-        // Resize the canvas to fit snugly
-        let canvas_width = Math.max(...line_infos.map(line_info => line_info.width));
-        this.buffer_canvas.width = canvas_width;
-        this.buffer_canvas.height = canvas_height;
-        if (canvas_width === 0 || canvas_height === 0) {
-            return;
+        // Finally, lay the lines out vertically
+        let y = 0;
+        for (let line_info of line_infos) {
+            line_info.y0 = y + line_info.ascent - line_info.baseline;
+            y += line_info.ascent + line_info.descent + line_info.spacing;
+        }
+        let canvas_height = y;
+        // Drop the spacing after the last line, which isn't rendered
+        if (line_infos.length > 0) {
+            canvas_height -= line_infos.at(-1).spacing;
         }
 
         // Align text horizontally
+        let canvas_width = Math.max(...line_infos.map(line_info => line_info.width));
         if (alignment > 0) {
             for (let line_info of line_infos) {
-                line_info.x0 = Math.floor((canvas_width - line_info.width) * alignment);
+                line_info.x0 = Math.floor((canvas_width - line_info.width) * alignment + 0.5);
             }
         }
+
+        // Resize the canvas to fit snugly
+        if (canvas_width === 0 || canvas_height === 0)
+            return;
+        canvas_width += padding * 2;
+        canvas_height += padding * 2;
+        this.buffer_canvas.width = canvas_width;
+        this.buffer_canvas.height = canvas_height;
 
         // And draw!
         let ctx = this.buffer_canvas.getContext('2d');
         for (let line_info of line_infos) {
+            // debug -- draw baseline
+            //ctx.fillStyle = 'hsl(225deg 100% 50% / 0.5)';
+            //ctx.fillRect(0, padding + line_info.y0 + line_info.baseline, this.buffer_canvas.width, 1);
             for (let draw of line_info.draws) {
                 let glyph = draw.glyph;
-                let px = line_info.x0 + (glyph.dx || 0) + draw.x;
-                let py = line_info.y0 + (glyph.dy || 0) + draw.y;
+                let px = padding + line_info.x0 + (glyph.dx || 0) + draw.x;
+                let py = padding + line_info.y0 + (glyph.dy || 0) + draw.y;
                 if (draw.gradient) {
                     // Argh, we need to translate
                     // First draw the character to the dummy canvas -- note we can't
@@ -2177,8 +2220,8 @@ class BossBrain {
         }
 
         // Finally, scale up the offscreen canvas
-        final_canvas.width = (canvas_width + 2 * padding) * scale;
-        final_canvas.height = (canvas_height + 2 * padding) * scale;
+        final_canvas.width = canvas_width * scale;
+        final_canvas.height = canvas_height * scale;
         let final_ctx = final_canvas.getContext('2d');
         let aabb = [0, 0, final_canvas.width, final_canvas.height];
         if (background) {
@@ -2189,10 +2232,7 @@ class BossBrain {
             final_ctx.clearRect(...aabb);
         }
         final_ctx.imageSmoothingEnabled = false;
-        final_ctx.drawImage(
-            this.buffer_canvas,
-            padding * scale, padding * scale,
-            canvas_width * scale, canvas_height * scale);
+        final_ctx.drawImage(this.buffer_canvas, 0, 0, canvas_width * scale, canvas_height * scale);
 
         return final_canvas;
     }
@@ -2209,7 +2249,8 @@ class BossBrain {
 class BulkGenerator {
     static RECOMMENDED_SETTINGS = {
         scale: '1',
-        'escapee-mode': 'min-each',
+        'escapee-mode': 'shrink',
+        'equal-lines': false,
         bg: false,
         wrap: false,
     };
@@ -2270,7 +2311,6 @@ class BulkGenerator {
         this.use_recs_button.addEventListener('click', ev => {
             let any_changed = false;
             for (let [key, value] of Object.entries(this.constructor.RECOMMENDED_SETTINGS)) {
-                console.log(key, value, this.brain.form.elements[key].value);
                 let ctl = this.brain.form.elements[key];
                 if (ctl.type === 'checkbox') {
                     if (ctl.checked !== value) {
