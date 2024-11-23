@@ -2202,6 +2202,19 @@ class BulkGenerator {
         this.sample = this.root.querySelector('.bulk-sample-output');
 
         this.maps = [];
+        let update_preview_index = () => {
+            this.preview_index = parseInt(this.form.elements['sample'].value, 10);
+            if (Number.isNaN(this.preview_index)) {
+                this.preview_index = null;
+            }
+        };
+        update_preview_index();
+
+        this.form.elements['sample'].addEventListener('change', () => {
+            update_preview_index();
+            this.update_preview();
+        });
+
         this.parse_template();
         this.reparse();  // in case we refresh and are already populated
 
@@ -2455,6 +2468,37 @@ class BulkGenerator {
             }
         }
 
+        // Update sample list
+        let samples = this.form.elements['sample'];
+        samples.textContent = '';
+        for (let [i, map] of this.maps.entries()) {
+            let label = `${i}.) `;
+            if ('lumpname' in map) {
+                label += map['lumpname'];
+                label += " — ";
+            }
+            label += map['levelname'];
+            if ('author' in map) {
+                label += " by ";
+                label += map['author'];
+            }
+
+            let option = document.createElement('option');
+            option.setAttribute('value', String(i));
+            option.textContent = label;
+            samples.append(option);
+        }
+        if (this.maps.length === 0) {
+            this.preview_index = null;
+        }
+        else {
+            if (this.preview_index === null) {
+                this.preview_index = 0;
+            }
+            this.preview_index = Math.min(this.maps.length - 1, this.preview_index);
+            samples.value = String(this.preview_index);
+        }
+
         this.update_button();
         this.update_preview();
     }
@@ -2477,8 +2521,8 @@ class BulkGenerator {
     update_preview() {
         this.sample.textContent = '';
 
-        if (this.maps.length > 0) {
-            this.sample.append(this.render_one(this.maps[0]));
+        if (this.maps.length > 0 && this.preview_index !== null) {
+            this.sample.append(this.render_one(this.maps[Math.min(this.maps.length - 1, this.preview_index)]));
         }
     }
 

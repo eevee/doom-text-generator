@@ -497,6 +497,12 @@
     #bulk-dialog textarea {
         flex: 1;
     }
+    #bulk-dialog p:first-child {
+        margin-top: 0;
+    }
+    #bulk-dialog p:last-child {
+        margin-bottom: 0;
+    }
 
     /* Confirmation that you actually copied */
     .star {
@@ -604,9 +610,9 @@
                     <select name="escapee-mode">
                         <option value="none">Always use normal line height</option>
                         <option value="max">Always use maximum line height</option>
-                        <option value="each">Expand to fit individual lines</option>
+                        <option value="each">Expand to fit, per line</option>
                         <option value="equal" selected>Expand all lines equally</option>
-                        <option value="min-each">Shrink to fit individual lines</option>
+                        <option value="min-each">Shrink to fit, per line</option>
                         <option value="min-equal">Shrink to fit all lines equally</option>
                     </select>
                 </dd>
@@ -714,7 +720,7 @@
     <dialog id="bulk-dialog">
         <button type="button" class="emoji-button -close" autofocus>❌</button>
         <h1>Bulk generator</h1>
-        <p>This is mainly intended for generating CWILV lumps for a vanilla WAD, but it may have other clever uses as well.</p>
+        <p>This is mainly intended for generating levelpic lumps for a vanilla WAD, but it may have other clever uses as well.</p>
         <p>All your existing settings are used.  You can close this dialog to fiddle with them without losing anything here.</p>
         <form>
         <div>
@@ -723,11 +729,7 @@
                 <option value="list">Plain list of map names, one per line</option>
             </select>
             <textarea name="text"></textarea>
-            <button type="submit">💾 Download ZIP</button>
-        </div>
-        <div>
-            <div class="bulk-sample-output"></div>
-            <p>
+            <div>
                 Output file naming format:<br>
                 <select name="filename">
                     <option value="auto" checked> Auto, prefer Doom 2</option>
@@ -735,16 +737,60 @@
                     <option value="number"> Numbered in order</option>
                     <option value="lump"> Map lump name (*MAPINFO only)</option>
                 </select>
+            </div>
+            <button type="submit">💾 Download ZIP</button>
+        </div>
+        <div>
+            <p>
+                Preview:<br>
+                <select name="sample"></select>
+            </p>
+            <div class="bulk-sample-output"></div>
+            <p>
+                <label><input name="use-reccs" type="checkbox" checked>
+                    Use some recommended levelpic settings<br>
+                    (scale = 1×, escapees = shrink to fit per line, no background, no word wrap)
+                </label>
             </p>
 
-            <p>
-                Text template (uses extended bbcode):<br>
-                <textarea name="template" rows="4" placeholder="[=levelname][?author]&#x0a;[font=doom messages][=author][/?author]"></textarea>
-            </p>
-            <p>Leave blank for a sensible default.</p>
-            <p><code>[=property]</code> — insert the MAPINFO's value for <code>property</code>.  Use <code>[=levelname]</code> for the name, <code>[=author]</code> for the author, and <code>[=lumpname]</code> for the lump name (e.g., MAP01).</p>
-            <p>(For plain text, only <code>[=levelname]</code> is available.)</p>
-            <p><code>[?property]...[/?property]</code> — only include the contents if <code>property</code> exists.</p>
+            <!-- Template: either friendly choice of font/color for name/author, or totally custom textarea -->
+            <fieldset>
+                <legend>
+                    <label><input name="custom-template" type="checkbox"> Use custom template</label>
+                </legend>
+
+                <div class="-custom-template-no">
+                    <p>
+                        Name style:
+                        <select name="name-font">
+                            <option value="none">current selection</option>
+                        </select>
+                        <select name="name-color">
+                            <option value="none">current selection</option>
+                            <option value="none">default</option>
+                        </select>
+                    </p>
+                    <p>
+                        Author style:
+                        <select name="name-font">
+                            <option value="none">current selection</option>
+                        </select>
+                        <select name="name-color">
+                            <option value="none">current selection</option>
+                            <option value="none">default</option>
+                        </select>
+                    </p>
+                </div>
+                <div class="-custom-template-yes">
+                    <p>
+                        Text template (uses extended bbcode):<br>
+                        <textarea name="template" rows="4" placeholder="[=levelname][?author]&#x0a;[font=doom messages][=author][/?author]"></textarea>
+                    </p>
+                    <p>Leave blank for a sensible default.</p>
+                    <p><code>[=property]</code> — insert the MAPINFO's value for <code>property</code>.  Use <code>[=levelname]</code> for the name, <code>[=author]</code> for the author, and <code>[=lumpname]</code> for the lump name (e.g., MAP01).</p>
+                    <p>(For plain text, only <code>[=levelname]</code> is available.)</p>
+                    <p><code>[?property]...[/?property]</code> — only include the contents if <code>property</code> exists.</p>
+                </div>
         </div>
         </form>
     </dialog>
