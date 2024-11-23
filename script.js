@@ -2215,6 +2215,13 @@ class BulkGenerator {
             ev.preventDefault();
             this.download();
         });
+
+        // Refresh preview when the dialog is opened, in case the underlying settings have changed
+        // XXX you'd think this would use the 'toggle' event but that's not quite shipped yet
+        document.querySelector(`button[data-dialog-id=${this.root.id}]`).addEventListener('click', ev => {
+            this.update_preview();
+            this.update_button();
+        });
     }
 
     // spits out a list of ['literal', string] + ['prop', key] + ['if', key, children]
