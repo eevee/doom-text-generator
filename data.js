@@ -923,6 +923,7 @@ export const DOOM_FONTS = {
     src: "fonts/doom-nightmare.png",
     space_width: 8,
     line_height: 19,
+    baseline: 15,  // all letters ooze below the baseline, impossible to infer automatically
     "kerning": -1,
     lightness_range: [20.033, 76.245],
     meta: {
@@ -2182,6 +2183,7 @@ export const DOOM_FONTS = {
     src: "fonts/DNATM.png",
     space_width: 5,
     line_height: 16,
+    baseline: 14,  // several capital letters dip below the baseline
     lightness_range: [0, 67.873],
     meta: {
       name: "Duke Nukem Atomic",

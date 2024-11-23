@@ -2,6 +2,9 @@
 // fold in gzdoom's game_support.pk3 font extensions, which have cyrillic for most of the canon fonts
 // someone asked for build + quake fonts
 // color table doesn't show console if the page loads with zdoom-console selected
+// i strongly suspect i janked something with escapees
+// - yeah uh "shrink to fit per line" gets very confused about mixed fonts i think
+// - needs a popup with a diagram anyway
 // someday, bbcode...
 // - uh oh i think
 // - ack, it's not stripped from the downloaded filename
@@ -510,14 +513,18 @@ class BuiltinFont extends Font {
         this.line_height = fontdef.line_height;
         this.kerning = fontdef.kerning;
         this.lightness_range = fontdef.lightness_range;
-        this.detect_baseline();
+        if (fontdef.baseline) {
+            this.baseline = fontdef.baseline;
+        }
+        else {
+            this.detect_baseline();
+        }
 
         this.meta = fontdef.meta;
         this.name = fontdef.meta.name;
     }
 
     draw_glyph(glyph, ctx, x, y) {
-        // TODO wait, shouldn't 'y' be the baseline, not the top of the glyph
         ctx.drawImage(
             this.montage,
             glyph.x, glyph.y, glyph.width, glyph.height,
@@ -580,7 +587,12 @@ class FON2Font extends Font {
     static async from_builtin(fontdef) {
         let response = await fetch(fontdef.src);
         let buf = await response.arrayBuffer();
-        return new this(buf, fontdef.meta);
+
+        let font = new this(buf, fontdef.meta);
+        if (fontdef.baseline) {
+            font.baseline = fontdef.baseline;
+        }
+        return font;
     }
 
     constructor(fon2_buf, meta = {}) {
@@ -1998,6 +2010,7 @@ class BossBrain {
             }
 
             let line_height = line_height_top + line_height_bottom;
+            line_info.baseline = line_height_top;
             line_info.height = line_height;
 
             let ascent = -Infinity;
