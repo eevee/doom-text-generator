@@ -25,6 +25,9 @@
         vertical-align: baseline;
         font-size: inherit;
     }
+    select, button {
+        padding: 0.5em;
+    }
     input[type=color] {
         vertical-align: middle;
     }
@@ -38,14 +41,12 @@
     input:disabled {
         opacity: 0.5;
     }
-    button {
-        padding: 0.25em;
-    }
     button.emoji-button {
         appearance: none;
         box-sizing: content-box;
         width: 1em;
         height: 1em;
+        padding: 0.25em;
         background: none;
         border: none;
         line-height: 1;
@@ -211,7 +212,7 @@
     ul.radioset > li > label {
         position: relative;
         display: block;
-        padding-left: 1.5em;
+        padding-left: 1.75em;
     }
     ul.radioset > li > label > input:first-child {
         position: absolute;
