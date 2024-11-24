@@ -2,9 +2,7 @@
 // fold in gzdoom's game_support.pk3 font extensions, which have cyrillic for most of the canon fonts
 // someone asked for build + quake fonts
 // color table doesn't show console if the page loads with zdoom-console selected
-// i strongly suspect i janked something with escapees
-// - yeah uh "shrink to fit per line" gets very confused about mixed fonts i think
-// - needs a popup with a diagram anyway
+// bulk -- auto font would be nice?  maybe too fancy
 // someday, bbcode...
 // - uh oh i think
 // - ack, it's not stripped from the downloaded filename
@@ -1047,7 +1045,6 @@ class BossBrain {
                 escapee_mode: opt,
                 scale: 2,
             });
-            console.log(canvas);
             li.insertBefore(canvas, li.firstChild);
         }
 
@@ -1895,16 +1892,22 @@ class BossBrain {
                             }
                         }
                         else if (tag === 'font') {
-                            // Find a font -- first one that contains all the arg's words
-                            let tokens = arg.toLowerCase().trim().split(/\s+/u);
-                            if (tokens.length === 0 || tokens[0] === "")
-                                throw new BBCodeError(match);
+                            // Find a font -- first one that contains all the arg's words, OR a !
+                            // followed by a font identifier
                             let new_font = null;
-                            for (let ident of this.font_order) {
-                                let font = this.fonts[ident];
-                                if (font && tokens.every(token => font.name.toLowerCase().includes(token))) {
-                                    new_font = font;
-                                    break;
+                            if (arg.startsWith('!')) {
+                                new_font = this.fonts[arg.slice(1)];
+                            }
+                            else {
+                                let tokens = arg.toLowerCase().trim().split(/\s+/u);
+                                if (tokens.length === 0 || tokens[0] === "")
+                                    throw new BBCodeError(match);
+                                for (let ident of this.font_order) {
+                                    let font = this.fonts[ident];
+                                    if (font && tokens.every(token => font.name.toLowerCase().includes(token))) {
+                                        new_font = font;
+                                        break;
+                                    }
                                 }
                             }
                             if (new_font) {
@@ -2291,15 +2294,24 @@ class BulkGenerator {
             this.form.elements['name-color'].append(option.cloneNode(true));
             this.form.elements['author-color'].append(option);
         }
+        for (let key of [
+                'custom-template', 'template',
+                'name-font', 'name-color', 'author-font', 'author-color'])
+        {
+            this.form.elements[key].addEventListener('input', () => {
+                this.parse_template();
+                this.update_preview();
+            });
+        }
 
         // Update immediately, in case the form is already populated after a refresh
         this.parse_template();
         this.reparse();
 
-        this.form.querySelector('textarea').addEventListener('input', () => {
+        this.form.elements['text'].addEventListener('input', () => {
             this.reparse();
         });
-        this.form.querySelector('select[name=format]').addEventListener('change', () => {
+        this.form.elements['format'].addEventListener('change', () => {
             this.reparse();
         });
         this.form.addEventListener('submit', ev => {
@@ -2354,6 +2366,49 @@ class BulkGenerator {
 
     // spits out a list of ['literal', string] + ['prop', key] + ['if', key, children]
     parse_template() {
+        if (! this.form.elements['custom-template'].checked) {
+            // [=levelname][?author]&#x0a;[font=doom messages][=author][/?author]
+            // Build a template from the EZ Bake options
+            let name_font = this.form.elements['name-font'].value;
+            let author_font = this.form.elements['author-font'].value;
+            let name_color = this.form.elements['name-color'].value;
+            let author_color = this.form.elements['author-color'].value;
+            let wrap_in_style = (font, color, node) => {
+                let nodes = [node];
+                if (color !== '') {
+                    nodes = [
+                        ['literal', `[color=${color}]`],
+                        ...nodes,
+                        ['literal', "[/color]"],
+                    ];
+                }
+                if (font !== '') {
+                    nodes = [
+                        ['literal', `[font=!${font}]`],
+                        ...nodes,
+                        ['literal', "[/font]"],
+                    ];
+                }
+                return nodes;
+            };
+
+            let nodes = wrap_in_style(
+                this.form.elements['name-font'].value,
+                this.form.elements['name-color'].value,
+                ['prop', 'levelname']);
+
+            nodes.push(['if', 'author', [
+                ['literal', "\n"],
+                ...wrap_in_style(
+                    this.form.elements['name-font'].value,
+                    this.form.elements['name-color'].value,
+                    ['prop', 'author']),
+            ]]);
+
+            this.template = nodes;
+            return;
+        }
+
         let template = this.form.elements['template'].value;
         if (template === '') {
             template = this.form.elements['template'].placeholder;

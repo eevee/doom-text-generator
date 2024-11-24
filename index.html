@@ -522,7 +522,7 @@
     }
     #bulk-dialog fieldset .-custom-template-no p {
         display: grid;
-        grid: auto auto / 4fr 2fr;
+        grid: auto auto / 3fr 2fr;
         gap: 0.25em 1em;
         align-items: center;
     }
@@ -811,20 +811,20 @@
                     <p>
                         <span>Name style:</span>
                         <select name="name-font">
-                            <option value="none">automatic big font</option>
+                            <option value="">current font</option>
                         </select>
                         <select name="name-color">
-                            <option value="" selected>selected color</option>
+                            <option value="" selected>current color</option>
                             <option value="none">original color</option>
                         </select>
                     </p>
                     <p>
                         <span>Author style:</span>
                         <select name="author-font">
-                            <option value="">automatic small font</option>
+                            <option value="">current font</option>
                         </select>
                         <select name="author-color">
-                            <option value="">selected color</option>
+                            <option value="">current color</option>
                             <option value="none" selected>original color</option>
                         </select>
                     </p>
@@ -834,7 +834,6 @@
                         Text template (uses extended bbcode):<br>
                         <textarea name="template" rows="4" placeholder="[=levelname][?author]&#x0a;[font=doom messages][=author][/?author]"></textarea>
                     </p>
-                    <p>Leave blank for a sensible default.</p>
                     <p><code>[=property]</code> — insert the MAPINFO's value for <code>property</code>.  Use <code>[=levelname]</code> for the name, <code>[=author]</code> for the author, and <code>[=lumpname]</code> for the lump name (e.g., MAP01).</p>
                     <p>(For plain text, only <code>[=levelname]</code> is available.)</p>
                     <p><code>[?property]...[/?property]</code> — only include the contents if <code>property</code> exists.</p>
