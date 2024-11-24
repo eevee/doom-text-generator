@@ -2710,7 +2710,10 @@ class BulkGenerator {
         this.sample.textContent = '';
 
         if (this.maps.length > 0 && this.preview_index !== null) {
-            this.sample.append(this.render_one(this.maps[Math.min(this.maps.length - 1, this.preview_index)]));
+            let canvas = this.render_one(this.maps[Math.min(this.maps.length - 1, this.preview_index)]);
+            if (canvas) {
+                this.sample.append(canvas);
+            }
         }
     }
 
@@ -2739,8 +2742,13 @@ class BulkGenerator {
         let promises = [];
         for (let map of this.maps) {
             let canvas = this.render_one(map);
-            promises.push(
-                new Promise(res => canvas.toBlob(res)).then(blob => blob.arrayBuffer()));
+            if (canvas) {
+                promises.push(
+                    new Promise(res => canvas.toBlob(res)).then(blob => blob.arrayBuffer()));
+            }
+            else {
+                promises.push(Promise.resolve(null));
+            }
         }
 
         let bufs = await Promise.all(promises);
@@ -2748,6 +2756,8 @@ class BulkGenerator {
         for (let [i, buf] of bufs.entries()) {
             if (i >= 200)
                 break;
+            if (! buf)
+                continue;
 
             let fn;
             let map = this.maps[i];
