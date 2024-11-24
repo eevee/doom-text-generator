@@ -6,12 +6,10 @@
 // someday, bbcode...
 // - uh oh i think
 // - ack, it's not stripped from the downloaded filename
-// - font stuff: auto baseline is wrong for several builtin fonts; no way to override it for custom
+// - no way to set manual baseline for custom fonts
 // - do something with errors
-//   - would be great if bbcode parser never errored
+//   - would be great if bbcode parser never errored!
 // - explicit offsets maybe?
-// - documentation
-// - attempt to handle baseline
 // - convert between acs and bbcode?
 // - click color buttons to insert at cursor, or set selection color correctly, depending on syntax?
 //   - likewise click fonts to do that too?
@@ -2487,13 +2485,29 @@ class BulkGenerator {
         let maps = [];
         let block = { header: [], data: {} };
         let key = null;
+        // Tokens: space (ignored), string/number/token, open, close, equals, comma, unknown (ignored)
         // sorry.  im sorry
         let tokenize_rx = /(?<space>\s|\/\/.*\n|\/\*.*\*\/)|(?<string>"(?:[^"\\]|\\[\\"])*")|(?<number>-?\d+(?:[.]\d*)?)|(?<token>\w+)|(?<open>\{)|(?<close>\})|(?<equals>=)|(?<comma>,)|(?<unknown>.)/ug;
+        let complain = () => {
+            let lineno = 1;
+            let last_linebreak_pos = 0;
+            for (let m of text.matchAll(/\n/g)) {
+                if (m.index >= tokenize_rx.lastIndex)
+                    break;
+                lineno += 1;
+                last_linebreak_pos = m.index;
+            }
+
+            console.error(
+                "Ignoring junk during MAPINFO parsing:", match,
+                "at line", lineno, "char", tokenize_rx.lastIndex - match[0].length - last_linebreak_pos,
+                "while trying to parse", state);
+        };
         while (match = tokenize_rx.exec(text)) {
             if (match.groups.space)
                 continue;
             if (match.groups.unknown) {
-                console.error(match);
+                complain();
                 continue;
             }
 
@@ -2515,16 +2529,19 @@ class BulkGenerator {
             let value = string ?? number ?? token;
 
             if (state === 'outside') {
-                if (match.groups.open) {
-                    state = 'inside';
-                    continue;
-                }
-                else if (value !== null) {
+                if (value !== null) {
                     block.header.push(value);
                     continue;
                 }
+                else if (match.groups.open) {
+                    state = 'inside';
+                    continue;
+                }
+                else {  // close, equals, comma
+                    complain();
+                    continue;
+                }
             }
-
 
             // Any of these states can be followed by a new key or the end of the block
             if (state === 'inside' || state === 'after key' || state === 'after value') {
@@ -2551,6 +2568,7 @@ class BulkGenerator {
                 }
             }
 
+            // ...which leaves: open, equals, comma; and everything for 'value' state
             if (state === 'after key') {
                 if (match.groups.equals) {
                     state = 'value';
@@ -2571,7 +2589,7 @@ class BulkGenerator {
                 }
             }
 
-            console.error("fatal mapinfo parse error:", state, match);
+            complain();
         }
 
         return maps;
