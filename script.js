@@ -2253,7 +2253,9 @@ class BulkGenerator {
         'escapee-mode': 'shrink',
         'equal-lines': false,
         bg: false,
-        wrap: false,
+        wrap: true,
+        'wrap-width': '320',
+        'wrap-units': 'px',
     };
 
     constructor(brain, root) {
@@ -2337,6 +2339,7 @@ class BulkGenerator {
             }
             if (any_changed) {
                 this.brain.update_fragment();
+                this.brain._fix_wrap_controls();
                 this.brain.redraw_current_text();
             }
             this.use_recs_button.disabled = true;
