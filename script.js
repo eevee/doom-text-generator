@@ -2616,6 +2616,9 @@ class BulkGenerator {
                 // optional second argument
                 value = values[0];
             }
+            if (typeof value === 'symbol') {
+                value = Symbol.keyFor(value);
+            }
             props[key] = value;
         }
 
