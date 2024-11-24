@@ -2735,10 +2735,10 @@ class BulkGenerator {
 
     _lumpname_to_levelpic(lumpname) {
         let m;
-        if (m = lump.match(/^map(\d\d)$/i)) {
+        if (m = lumpname.match(/^map(\d\d)$/i)) {
             return 'CWILV' + String(parseInt(m[1], 10) - 1).padStart(2, '0');
         }
-        else if (m = lump.match(/^e(\d)m(\d)$/i)) {
+        else if (m = lumpname.match(/^e(\d)m(\d)$/i)) {
             return `WILV${parseInt(m[1], 10) - 1}${parseInt(m[2], 10) - 1}`;
         }
     }
