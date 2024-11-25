@@ -2401,8 +2401,8 @@ class BulkGenerator {
             nodes.push(['if', 'author', [
                 ['literal', "\n"],
                 ...wrap_in_style(
-                    this.form.elements['name-font'].value,
-                    this.form.elements['name-color'].value,
+                    this.form.elements['author-font'].value,
+                    this.form.elements['author-color'].value,
                     ['prop', 'author']),
             ]]);
 
