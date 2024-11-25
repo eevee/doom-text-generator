@@ -2251,6 +2251,7 @@ class BossBrain {
 class BulkGenerator {
     static RECOMMENDED_SETTINGS = {
         scale: '1',
+        padding: '0',
         'escapee-mode': 'shrink',
         'equal-lines': false,
         bg: false,
@@ -2342,6 +2343,8 @@ class BulkGenerator {
                 this.brain.update_fragment();
                 this.brain._fix_wrap_controls();
                 this.brain.redraw_current_text();
+
+                this.update_preview();
             }
             this.use_recs_button.disabled = true;
         });
