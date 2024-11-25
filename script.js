@@ -2016,8 +2016,9 @@ class BossBrain {
                     }
                     // Break all subsequent glyphs onto a new line
                     let old_line_info = line_info;
+                    let split_draws = old_line_info.draws.splice(i0);
                     line_info = {
-                        draws: old_line_info.draws.splice(i0),
+                        draws: split_draws,
                         width: null,
                         height: null,
                         ascent: 0,
@@ -2025,7 +2026,7 @@ class BossBrain {
                         x0: null,
                         y0: null,
                         spacing: line_spacing,
-                        default_font: old_line_info.draws[i0].font,
+                        default_font: split_draws.length > 0 ? split_draws[0].font : font,
                     };
                     line_infos.push(line_info);
                     // Shift them back horizontally to the start of the line
