@@ -757,7 +757,7 @@ class BossBrain {
         this.init_form();
     }
 
-    async init() {
+    async init_data() {
         this.translations = Object.assign({}, ZDOOM_TRANSLATIONS);
         // Add slots for custom ones
         this.custom_translations = ['custom1'];
@@ -767,6 +767,10 @@ class BossBrain {
             flat: rgb`#FFFFFF`,
             is_custom: true,
         };
+
+        // Wire up the bulk dialog *before* loading fonts, so they get added to it
+        this.bulk_generator = new BulkGenerator(
+            this, document.querySelector('#bulk-dialog'));
 
         let promises = [];
         for (let [ident, fontdef] of Object.entries(DOOM_FONTS)) {
@@ -812,7 +816,7 @@ class BossBrain {
             this.update_fragment();
         });
 
-        await this.init();
+        await this.init_data();
 
         this.form.addEventListener('submit', ev => {
             ev.preventDefault();
@@ -1045,11 +1049,6 @@ class BossBrain {
             });
             li.insertBefore(canvas, li.firstChild);
         }
-
-
-        // Wire up the bulk dialog
-        this.bulk_generator = new BulkGenerator(
-            this, document.querySelector('#bulk-dialog'));
     }
 
     _update_radioset(ul) {
@@ -1158,6 +1157,8 @@ class BossBrain {
         );
         this.font_list_el.append(li);
         this.rendered_font_names[ident] = name_canvas;
+
+        this.bulk_generator.add_font(ident, name);
     }
 
     show_font_info(ident) {
@@ -2281,14 +2282,6 @@ class BulkGenerator {
             this.update_preview();
         });
 
-        // TODO add new fonts...
-        for (let ident of this.brain.font_order) {
-            let option = document.createElement('option');
-            option.setAttribute('value', ident);
-            option.textContent = this.brain.fonts[ident].meta.name;
-            this.form.elements['name-font'].append(option.cloneNode(true));
-            this.form.elements['author-font'].append(option);
-        }
         for (let name of Object.keys(this.brain.translations)) {
             let option = document.createElement('option');
             option.setAttribute('value', name);
@@ -2305,10 +2298,6 @@ class BulkGenerator {
                 this.update_preview();
             });
         }
-
-        // Update immediately, in case the form is already populated after a refresh
-        this.parse_template();
-        this.reparse();
 
         this.form.elements['text'].addEventListener('input', () => {
             this.reparse();
@@ -2351,6 +2340,7 @@ class BulkGenerator {
 
         // Refresh preview when the dialog is opened, in case the underlying settings have changed
         // XXX you'd think this would use the 'toggle' event but that's not quite shipped yet
+        this.parsed_once = false;
         document.querySelector(`button[data-dialog-id=${this.root.id}]`).addEventListener('click', ev => {
             // Update the recs button's disabledness to match whether the recommended
             // settings are already set
@@ -2364,9 +2354,26 @@ class BulkGenerator {
                 }
             }
 
-            this.update_preview();
-            this.update_button();
+            if (! this.parsed_once) {
+                this.reparse();
+                this.parsed_once = true;
+            }
+            else {
+                this.update_preview();
+                this.update_button();
+            }
         });
+
+        // Parse immediately, in case the form is already populated after a refresh
+        this.parse_template();
+    }
+
+    add_font(ident, name) {
+        let option = document.createElement('option');
+        option.setAttribute('value', ident);
+        option.textContent = name;
+        this.form.elements['name-font'].append(option.cloneNode(true));
+        this.form.elements['author-font'].append(option);
     }
 
     // spits out a list of ['literal', string] + ['prop', key] + ['if', key, children]
