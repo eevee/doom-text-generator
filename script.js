@@ -2560,7 +2560,7 @@ class BulkGenerator {
             // Any of these states can be followed by a new key or the end of the block
             if (state === 'inside' || state === 'after key' || state === 'after value') {
                 if (token) {
-                    key = Symbol.keyFor(token);
+                    key = Symbol.keyFor(token).toLowerCase();
                     block.data[key] = [];
                     state = 'after key';
                     continue;
