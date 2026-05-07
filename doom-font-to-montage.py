@@ -20,32 +20,32 @@ FONTDEFS = {
             source="STCFN___ lumps from doom2.wad",
         ),
     ),
-    # TODO i do have gzdoom-bigfont which is its own thing too
+    # TODO i do have uzdoom-bigfont which is its own thing too
     'doom-bigupper': dict(
-        glob='_fonts/gzdoom-doom-bigupper/*.png',
+        glob='_fonts/uzdoom-doom-bigupper/*.png',
         hex_numbering=True,
         global_kerning=-1,
         format='composite',
         meta=dict(
             name="Doom — menu font",
-            creator="id software + GZDoom",
+            creator="id software + UZDoom",
             license='derivative',
-            source="GZDoom's BIGUPPER, reverse engineered and extended from Doom's menu and title graphics",
-            source_url='https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigupper',
+            source="UZDoom's BIGUPPER, reverse engineered and extended from Doom's menu and title graphics",
+            source_url='https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc_extra/nonfree/filter/doom.id/fonts/bigupper',
         ),
     ),
     'doom-bigfont': dict(
-        glob='_fonts/gzdoom-doom-bigfont/*.png',
+        glob='_fonts/uzdoom-doom-bigfont/*.png',
         hex_numbering=True,
         global_kerning=-1,
         height=16,
         format='composite',
         meta=dict(
             name="Doom — menu font (small caps)",
-            creator="id software + GZDoom",
+            creator="id software + UZDoom",
             license='derivative',
-            source="GZDoom's BIGFONT, reverse engineered and extended from Doom's menu and title graphics",
-            source_url='https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont',
+            source="UZDoom's BIGFONT, reverse engineered and extended from Doom's menu and title graphics",
+            source_url='https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc_extra/nonfree/filter/doom.id/fonts/bigfont',
         ),
     ),
     'doom-nightmare': dict(
@@ -135,7 +135,7 @@ FONTDEFS = {
         ),
     ),
     'strife-bigfont': dict(
-        glob='_fonts/gzdoom-strife-bigfont/*.png',
+        glob='_fonts/strife-bigfont/*.png',
         format='composite',
         hex_numbering=True,
         global_kerning=-1,

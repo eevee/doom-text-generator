@@ -1,5 +1,5 @@
 // TODO:
-// fold in gzdoom's game_support.pk3 font extensions, which have cyrillic for most of the canon fonts
+// fold in uzdoom's game_support.pk3 font extensions, which have cyrillic for most of the canon fonts
 // someone asked for build + quake fonts
 // color table doesn't show console if the page loads with zdoom-console selected
 // bulk -- auto font would be nice?  maybe too fancy
@@ -1209,7 +1209,7 @@ class BossBrain {
         else if (font.meta.format === 'unicode') {
             q('p.-format').textContent = "";
             q('p.-format').append(
-                mk('a', {href: 'https://zdoom.org/wiki/Unicode_font'}, "GZDoom \"Unicode\" font"));
+                mk('a', {href: 'https://zdoom.org/wiki/Unicode_font'}, "UZDoom \"Unicode\" font"));
         }
         if (font.meta.source_url) {
             q('p.-source').textContent = "";
