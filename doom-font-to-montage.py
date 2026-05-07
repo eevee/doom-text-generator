@@ -106,8 +106,8 @@ FONTDEFS = {
         meta=dict(
             name="Chex Quest — small font",
             desc="Used for in-game messages and menu prompts.",
-            creator="unknown",  # XXX?
-            license='unknown',
+            creator="Digital Café",
+            license="commercial",
             source="STCFN___ lumps from chex3.wad",
         ),
     ),
@@ -115,9 +115,9 @@ FONTDEFS = {
         glob='_fonts/strife/STBFN*.png',
         format='composite',
         meta=dict(
-            name="Strife — small font",
-            desc="Used for in-game messages and menu prompts.",
-            creator="unknown",  # XXX?
+            name="Strife — micro font",
+            desc="Used in rare cases in Strife.",
+            creator="Rogue Entertainment",
             license='commercial',
             source="STBFN___ lumps from strife.wad",
         ),
@@ -126,11 +126,10 @@ FONTDEFS = {
         glob='_fonts/strife/STCFN*.png',
         format='composite',
         meta=dict(
-            name="Strife — alternate small font",
-            # TODO well that can't be true
-            desc="Used for in-game messages and menu prompts.",
-            creator="unknown",  # XXX?
-            license='unknown',
+            name="Strife — messages font",
+            desc="Used for in-game messages, dialogue, and menu prompts.",
+            creator="Rogue Entertainment",
+            license='commercial',
             source="STCFN___ lumps from strife.wad",
         ),
     ),
@@ -144,8 +143,8 @@ FONTDEFS = {
             desc="Used for main menu options.",
             creator="unknown",  # XXX?
             license='derivative',
-            # TODO get the fuckin, gzdoom link
             source="Derived from Strife",
+            source_url='https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc_extra/nonfree/filter/game-strife/fonts/bigfont',
         ),
     ),
     # TODO hacx small + menu fonts?
@@ -155,11 +154,11 @@ FONTDEFS = {
         format='fon1',
         meta=dict(
             name="ZDoom — console font",
-            # TODO is this used in gzdoom any more?
-            creator="unknown",  # XXX?
+            desc="Font used in ZDoom's console.",
+            creator="unknown",
             license='unknown',
-            # TODO get the fuckin, gzdoom link
-            source="confont.lmp from ZDoom",
+            source="UZDoom's \"consolefont\"",
+            source_url='https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc/static/fonts/consolefont',
         ),
     ),
 }
