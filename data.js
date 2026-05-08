@@ -521,7 +521,7 @@ export const DOOM_FONTS = {
       "\u201e": "12x5+420+441@0,12"
     },
     type: "montage",
-    src: "fonts/bigupper-gzdoom.png",
+    src: "fonts/bigupper-uzdoom.png",
     space_width: 9,
     // Manually adjusted to remove excess space when unused, since the font is small-caps and
     // only a couple extended Latin and Cyrillic characters have real descenders
@@ -531,11 +531,11 @@ export const DOOM_FONTS = {
     meta: {
       name: "Doom Menu",
       desc: "Font used for Doom's primary menu items.  Doom doesn't actually contain this font, only graphics created with it, so the font itself was reverse-engineered from those and missing characters filled in by various contributors.  This version is also silver instead of the original red, presumably for ease of recoloration.",
-      creator: ["id Software", "Skulltag", "Amuscaria", "JNechaevsky", "GZDoom", "...?"],
+      creator: ["id Software", "Skulltag", "Amuscaria", "JNechaevsky", "UZDoom", "...?"],
       license: "derivative",
       format: "unicode",
-      source: "GZDoom's BIGUPPER font for Doom",
-      source_url: "https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigupper"
+      source: "UZDoom's BIGUPPER font for Doom",
+      source_url: "https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc_extra/nonfree/filter/doom.id/fonts/bigupper"
     },
   },
 
@@ -782,7 +782,7 @@ export const DOOM_FONTS = {
       "\u201e": "12x5+325+270@0,9"
     },
     type: "montage",
-    src: "fonts/bigfont-gzdoom.png",
+    src: "fonts/bigfont-uzdoom.png",
     space_width: 9,
     line_height: 12,
     kerning: -1,
@@ -790,11 +790,11 @@ export const DOOM_FONTS = {
     meta: {
       name: "Doom Menu Small",
       desc: "Font used for Doom's level names.  Similar to the Doom Menu font, but with only small-caps letters and smaller numbers.  Doom doesn't actually contain this font, only graphics created with it, so the font itself was reverse-engineered from those and missing characters filled in by various contributors.  This version is also silver instead of the original red, presumably for ease of recoloration.",
-      creator: ["id Software", "Skulltag", "Amuscaria", "JNechaevsky", "GZDoom", "...?"],
+      creator: ["id Software", "Skulltag", "Amuscaria", "JNechaevsky", "UZDoom", "...?"],
       license: "derivative",
       format: "unicode",
-      source: "GZDoom's BIGFONT font for Doom",
-      source_url: "https://github.com/coelckers/gzdoom/tree/master/wadsrc_extra/static/filter/doom.id/fonts/bigfont"
+      source: "UZDoom's BIGFONT font for Doom",
+      source_url: "https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc_extra/nonfree/filter/doom.id/fonts/bigfont"
     },
   },
 
@@ -1543,10 +1543,10 @@ export const DOOM_FONTS = {
     meta: {
       name: "Strife Menu",
       desc: "Font used for Strife's primary menu items.  Like Doom, Strife only contains assembled text and not individual characters, so this was reverse-engineered.  I'm not sure who did the actual work, though.",
-      creator: ["Rogue Entertainment", "GZDoom"],
+      creator: ["Rogue Entertainment", "UZDoom"],
       license: "commercial",
-      source: "GZDoom's BIGFONT for Strife",
-      source_url: "https://github.com/ZDoom/gzdoom/tree/master/wadsrc_extra/static/filter/game-strife/fonts/bigfont",
+      source: "UZDoom's BIGFONT for Strife",
+      source_url: "https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc_extra/nonfree/filter/game-strife/fonts/bigfont",
     }
   },
 
@@ -1911,11 +1911,11 @@ export const DOOM_FONTS = {
     meta: {
       name: "ZDoom Console",
       desc: "Font used in ZDoom's console.  I don't know where this came from; it's existed since the first commit in the Git repository, in 2006, and the older SVN repository no longer exists.",
-      creator: "GZDoom",
+      creator: "UZDoom",
       license: "unknown",
       format: "unicode",
-      source: "GZDoom's \"consolefont\"",
-      source_url: "https://github.com/ZDoom/gzdoom/tree/master/wadsrc/static/fonts/consolefont",
+      source: "UZDoom's \"consolefont\"",
+      source_url: "https://github.com/UZDoom/UZDoom/tree/trunk/wadsrc/static/fonts/consolefont",
     }
   },
 
